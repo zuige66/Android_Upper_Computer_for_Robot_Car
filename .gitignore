@@ -1,0 +1,9 @@
+/.gradle/
+/build/
+/app/build/
+/local.properties
+/gradle-8.13-bin.zip
+/gradle-8.13/
+/.idea/
+/.kotlin/
+*.iml
