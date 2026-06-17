@@ -5,9 +5,11 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStoreFile
+import com.carhost.mobile.data.model.ColorTheme
 import com.carhost.mobile.data.model.ConnectionProfile
 import com.carhost.mobile.data.model.CustomChartDef
 import com.carhost.mobile.data.model.CustomChartType
@@ -49,6 +51,8 @@ class PreferencesRepository @Inject constructor(
                 useDynamicColor = prefs[Keys.DynamicColor] ?: true,
                 keepScreenOn = prefs[Keys.KeepScreenOn] ?: true,
                 notificationsEnabled = prefs[Keys.Notifications] ?: false,
+                colorTheme = try { ColorTheme.valueOf(prefs[Keys.ColorTheme] ?: "Default") } catch (_: Exception) { ColorTheme.Default },
+                contrastLevel = prefs[Keys.ContrastLevel] ?: 0.5f,
                 customCharts = parseCustomCharts(prefs[Keys.CustomCharts] ?: "[]"),
                 customCommands = parseCustomCommands(prefs[Keys.CustomCommands] ?: "[]"),
                 quickButtons = parseQuickButtons(prefs[Keys.QuickButtons] ?: "[]"),
@@ -72,6 +76,14 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun setNotificationsEnabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[Keys.Notifications] = enabled }
+    }
+
+    suspend fun setColorTheme(theme: ColorTheme) {
+        dataStore.edit { prefs -> prefs[Keys.ColorTheme] = theme.name }
+    }
+
+    suspend fun setContrastLevel(level: Float) {
+        dataStore.edit { prefs -> prefs[Keys.ContrastLevel] = level }
     }
 
     suspend fun saveCustomCharts(charts: List<CustomChartDef>) {
@@ -168,6 +180,8 @@ class PreferencesRepository @Inject constructor(
         val DynamicColor = booleanPreferencesKey("dynamic_color")
         val KeepScreenOn = booleanPreferencesKey("keep_screen_on")
         val Notifications = booleanPreferencesKey("notifications_enabled")
+        val ColorTheme = stringPreferencesKey("color_theme")
+        val ContrastLevel = floatPreferencesKey("contrast_level")
         val CustomCharts = stringPreferencesKey("custom_charts")
         val CustomCommands = stringPreferencesKey("custom_commands")
         val QuickButtons = stringPreferencesKey("quick_buttons")

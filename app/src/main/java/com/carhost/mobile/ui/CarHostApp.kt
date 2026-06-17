@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.draw.clip
@@ -45,10 +46,14 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Slider
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -80,6 +85,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.carhost.mobile.data.model.AlertLevel
 import com.carhost.mobile.data.model.AppTab
+import com.carhost.mobile.data.model.ColorTheme
 import com.carhost.mobile.data.model.ChartPoint
 import com.carhost.mobile.data.model.CommandEmphasis
 import com.carhost.mobile.data.model.CustomChartDef
@@ -106,7 +112,11 @@ fun CarHostApp(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    CarHostTheme(useDynamicColor = uiState.preferences.useDynamicColor) {
+    CarHostTheme(
+        useDynamicColor = uiState.preferences.useDynamicColor,
+        colorTheme = uiState.preferences.colorTheme,
+        contrastLevel = uiState.preferences.contrastLevel,
+    ) {
         KeepScreenOnEffect(enabled = uiState.preferences.keepScreenOn)
         CarHostScaffold(
             uiState = uiState,
@@ -1070,6 +1080,16 @@ private fun SettingsScreen(
             )
         }
 
+        // Color theme picker
+        item {
+            ColorThemeSection(
+                currentTheme = uiState.preferences.colorTheme,
+                contrastLevel = uiState.preferences.contrastLevel,
+                onThemeSelected = { onIntent(MainIntent.SetColorTheme(it)) },
+                onContrastChanged = { onIntent(MainIntent.SetContrastLevel(it)) },
+            )
+        }
+
         // JSON viewer section
         item {
             Card {
@@ -1190,6 +1210,116 @@ private fun SettingsScreen(
                         textAlign = TextAlign.End,
                     )
                 }
+            }
+        }
+    }
+}
+
+private val themeSwatchColors = mapOf(
+    ColorTheme.Default to Color(0xFFF2BC6C),
+    ColorTheme.RedYellowPink to Color(0xFFFFB4A8),
+    ColorTheme.YellowGreenGray to Color(0xFFA8D88C),
+    ColorTheme.BlueGreenGray to Color(0xFF80CBC4),
+    ColorTheme.BlackWhiteGray to Color(0xFFD0D0D0),
+)
+
+@Composable
+private fun ColorThemeSection(
+    currentTheme: ColorTheme,
+    contrastLevel: Float,
+    onThemeSelected: (ColorTheme) -> Unit,
+    onContrastChanged: (Float) -> Unit,
+) {
+    Card {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Palette,
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = "颜色主题",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+
+            // Color swatches row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ColorTheme.entries.forEachIndexed { index, theme ->
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .requiredSize(38.dp)
+                                .clip(CircleShape)
+                                .background(themeSwatchColors[theme]!!)
+                                .then(
+                                    if (currentTheme == theme)
+                                        Modifier
+                                            .border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                                    else Modifier
+                                )
+                                .clickable { onThemeSelected(theme) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (currentTheme == theme) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Palette,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.surface,
+                                )
+                            }
+                        }
+                        Text(
+                            text = theme.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+
+            // Contrast slider
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = "对比度",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = "%.0f%%".format(contrastLevel * 100),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Slider(
+                    value = contrastLevel,
+                    onValueChange = onContrastChanged,
+                    valueRange = 0f..1f,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }

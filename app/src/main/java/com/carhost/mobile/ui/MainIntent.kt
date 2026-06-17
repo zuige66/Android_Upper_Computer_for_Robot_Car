@@ -1,6 +1,7 @@
 package com.carhost.mobile.ui
 
 import com.carhost.mobile.data.model.AppTab
+import com.carhost.mobile.data.model.ColorTheme
 import com.carhost.mobile.data.model.CustomChartDef
 import com.carhost.mobile.data.model.CustomCommandDef
 import com.carhost.mobile.data.model.QuickButtonDef
@@ -17,6 +18,8 @@ sealed interface MainIntent {
     data class SetDynamicColor(val enabled: Boolean) : MainIntent
     data class SetKeepScreenOn(val enabled: Boolean) : MainIntent
     data class SetNotifications(val enabled: Boolean) : MainIntent
+    data class SetColorTheme(val theme: ColorTheme) : MainIntent
+    data class SetContrastLevel(val level: Float) : MainIntent
     data object ClearMonitorData : MainIntent
     data class AddCustomChart(val chart: CustomChartDef) : MainIntent
     data class DeleteCustomChart(val chartId: String) : MainIntent

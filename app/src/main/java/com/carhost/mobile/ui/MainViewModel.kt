@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.carhost.mobile.data.local.PreferencesRepository
 import com.carhost.mobile.data.model.AppTab
 import com.carhost.mobile.data.model.ChartPoint
+import com.carhost.mobile.data.model.ColorTheme
 import com.carhost.mobile.data.model.ConnectionProfile
 import com.carhost.mobile.data.model.CustomChartDef
 import com.carhost.mobile.data.model.CustomCommandDef
@@ -171,6 +172,8 @@ class MainViewModel @Inject constructor(
             is MainIntent.SetDynamicColor -> setDynamicColor(intent.enabled)
             is MainIntent.SetKeepScreenOn -> setKeepScreenOn(intent.enabled)
             is MainIntent.SetNotifications -> setNotifications(intent.enabled)
+            is MainIntent.SetColorTheme -> setColorTheme(intent.theme)
+            is MainIntent.SetContrastLevel -> setContrastLevel(intent.level)
             MainIntent.ClearMonitorData -> clearMonitorData()
             is MainIntent.AddCustomChart -> addCustomChart(intent.chart)
             is MainIntent.DeleteCustomChart -> deleteCustomChart(intent.chartId)
@@ -353,6 +356,18 @@ class MainViewModel @Inject constructor(
     private fun setNotifications(enabled: Boolean) {
         viewModelScope.launch {
             preferencesRepository.setNotificationsEnabled(enabled)
+        }
+    }
+
+    private fun setColorTheme(theme: ColorTheme) {
+        viewModelScope.launch {
+            preferencesRepository.setColorTheme(theme)
+        }
+    }
+
+    private fun setContrastLevel(level: Float) {
+        viewModelScope.launch {
+            preferencesRepository.setContrastLevel(level)
         }
     }
 

@@ -80,11 +80,21 @@ data class QuickButtonDef(
     val wireValue: String = "",
 )
 
+enum class ColorTheme(val label: String) {
+    Default("默认"),
+    RedYellowPink("红黄粉"),
+    YellowGreenGray("黄绿灰"),
+    BlueGreenGray("蓝绿灰"),
+    BlackWhiteGray("黑白灰"),
+}
+
 data class OperatorPreferences(
     val endpoint: ConnectionProfile = ConnectionProfile(),
     val useDynamicColor: Boolean = true,
     val keepScreenOn: Boolean = true,
     val notificationsEnabled: Boolean = false,
+    val colorTheme: ColorTheme = ColorTheme.Default,
+    val contrastLevel: Float = 0.5f,
     val customCharts: List<CustomChartDef> = emptyList(),
     val customCommands: List<CustomCommandDef> = emptyList(),
     val quickButtons: List<QuickButtonDef> = emptyList(),
