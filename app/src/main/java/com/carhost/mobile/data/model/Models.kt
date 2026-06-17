@@ -11,6 +11,7 @@ enum class AppTab(val label: String) {
 enum class LinkState(val label: String) {
     Offline("离线"),
     Connecting("连接中"),
+    Connected("已连接"),
     Online("在线"),
     Fault("故障"),
 }
@@ -41,10 +42,10 @@ enum class VehicleCommand(
     val emphasis: CommandEmphasis,
 ) {
     StartPatrol("开始巡检", "start_patrol", CommandEmphasis.Primary),
-    Pause("暂停任务", "pause", CommandEmphasis.Neutral),
+    Idle("待机任务", "idle", CommandEmphasis.Neutral),
     Evacuate("紧急撤离", "evacuate", CommandEmphasis.Accent),
-    EmergencyStop("立即急停", "emergency_stop", CommandEmphasis.Danger),
-    ManualReset("手动复位", "manual_reset", CommandEmphasis.Neutral),
+    TemperatureWarning("温度预警", "temp_warning", CommandEmphasis.Danger),
+    TemperatureAlarm("温度警告", "temp_alarm", CommandEmphasis.Accent),
     ReturnHome("返航回桩", "return_home", CommandEmphasis.Neutral),
 }
 
@@ -67,11 +68,46 @@ data class ConnectionProfile(
     val port: Int = 8080,
 )
 
+data class CustomCommandDef(
+    val commandId: String = "",
+    val customLabel: String = "",
+    val customWireValue: String = "",
+)
+
+data class QuickButtonDef(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val label: String = "",
+    val wireValue: String = "",
+)
+
 data class OperatorPreferences(
     val endpoint: ConnectionProfile = ConnectionProfile(),
     val useDynamicColor: Boolean = true,
     val keepScreenOn: Boolean = true,
     val notificationsEnabled: Boolean = false,
+    val customCharts: List<CustomChartDef> = emptyList(),
+    val customCommands: List<CustomCommandDef> = emptyList(),
+    val quickButtons: List<QuickButtonDef> = emptyList(),
+)
+
+data class ChartPoint(
+    val timeLabel: String,
+    val value: Float,
+)
+
+data class TrackPoint(
+    val timeLabel: String,
+    val binary: String,
+)
+
+enum class CustomChartType { Line, Bar }
+
+data class CustomChartDef(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val name: String = "",
+    val fieldPath: String = "",
+    val unit: String = "",
+    val type: CustomChartType = CustomChartType.Line,
 )
 
 data class TelemetrySnapshot(
@@ -82,6 +118,13 @@ data class TelemetrySnapshot(
     val locationDescription: String = "起点 / 充电桩",
     val temperatureC: Float = 0f,
     val gasPercent: Float = 0f,
+    val mq8Raw: Float = 0f,
+    val ahtTemperatureC: Float = 0f,
+    val ahtHumidityPercent: Float = 0f,
+    val mlxObjectTemperatureC: Float = 0f,
+    val mlxAmbientTemperatureC: Float = 0f,
+    val trackValue: Int = 0,
+    val trackBinary: String = "0000",
     val batteryPercent: Int = 0,
     val speedMetersPerSecond: Float = 0f,
     val latencyMs: Int = 0,
@@ -89,16 +132,25 @@ data class TelemetrySnapshot(
     val obstacleDetected: Boolean = false,
     val returnReason: ReturnReason = ReturnReason.None,
     val homeDockReached: Boolean = false,
-    val temperatureHistory: List<Float> = emptyList(),
-    val gasHistory: List<Float> = emptyList(),
-    val batteryHistory: List<Float> = emptyList(),
-    val speedHistory: List<Float> = emptyList(),
+    val temperatureHistory: List<ChartPoint> = emptyList(),
+    val gasHistory: List<ChartPoint> = emptyList(),
+    val batteryHistory: List<ChartPoint> = emptyList(),
+    val speedHistory: List<ChartPoint> = emptyList(),
+    val mlxObjectHistory: List<ChartPoint> = emptyList(),
+    val ahtTemperatureHistory: List<ChartPoint> = emptyList(),
+    val ahtHumidityHistory: List<ChartPoint> = emptyList(),
+    val mq8History: List<ChartPoint> = emptyList(),
+    val trackHistory: List<TrackPoint> = emptyList(),
+    val rfidHistory: List<String> = emptyList(),
+    val lastReceivedJson: String = "",
+    val lastSentJson: String = "",
+    val customChartHistory: Map<String, List<ChartPoint>> = emptyMap(),
 ) {
     val alertLevel: AlertLevel
         get() = when {
-            temperatureC > 80f || gasPercent >= 0.80f -> AlertLevel.Critical
-            temperatureC >= 70f || gasPercent >= 0.65f -> AlertLevel.Alarm
-            temperatureC >= 60f || gasPercent >= 0.45f -> AlertLevel.Warning
+            mlxObjectTemperatureC > 80f || gasPercent >= 0.80f -> AlertLevel.Critical
+            mlxObjectTemperatureC >= 70f || gasPercent >= 0.65f -> AlertLevel.Alarm
+            mlxObjectTemperatureC >= 60f || gasPercent >= 0.45f -> AlertLevel.Warning
             else -> AlertLevel.Normal
         }
 }

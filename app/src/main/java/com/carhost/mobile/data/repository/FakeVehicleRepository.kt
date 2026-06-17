@@ -3,11 +3,14 @@ package com.carhost.mobile.data.repository
 import com.carhost.mobile.data.local.db.LogRecordDao
 import com.carhost.mobile.data.local.db.LogRecordEntity
 import com.carhost.mobile.data.model.AlertLevel
+import com.carhost.mobile.data.model.ChartPoint
 import com.carhost.mobile.data.model.ConnectionProfile
+import com.carhost.mobile.data.model.CustomChartDef
 import com.carhost.mobile.data.model.LinkState
 import com.carhost.mobile.data.model.LogEntry
 import com.carhost.mobile.data.model.ReturnReason
 import com.carhost.mobile.data.model.TelemetrySnapshot
+import com.carhost.mobile.data.model.TrackPoint
 import com.carhost.mobile.data.model.VehicleCommand
 import com.carhost.mobile.data.model.VehicleState
 import java.time.LocalTime
@@ -101,9 +104,10 @@ class FakeVehicleRepository @Inject constructor(
                     homeDockReached = false,
                 )
 
-                VehicleCommand.Pause -> current.copy(
-                    vehicleState = VehicleState.Paused,
+                VehicleCommand.Idle -> current.copy(
+                    vehicleState = VehicleState.Idle,
                     speedMetersPerSecond = 0f,
+                    returnReason = ReturnReason.None,
                 )
 
                 VehicleCommand.Evacuate -> current.copy(
@@ -113,23 +117,14 @@ class FakeVehicleRepository @Inject constructor(
                     homeDockReached = false,
                 )
 
-                VehicleCommand.EmergencyStop -> current.copy(
-                    vehicleState = VehicleState.Emergency,
+                VehicleCommand.TemperatureWarning -> current.copy(
+                    vehicleState = VehicleState.Warning,
                     speedMetersPerSecond = 0f,
                 )
 
-                VehicleCommand.ManualReset -> current.copy(
-                    vehicleState = VehicleState.Manual,
+                VehicleCommand.TemperatureAlarm -> current.copy(
+                    vehicleState = VehicleState.Alarm,
                     speedMetersPerSecond = 0f,
-                    positionLabel = "START",
-                    rfidTag = "RFID-START",
-                    locationDescription = "起点 / 充电桩",
-                    temperatureC = 34f,
-                    gasPercent = 0.12f,
-                    obstacleDistanceCm = 120,
-                    obstacleDetected = false,
-                    returnReason = ReturnReason.None,
-                    homeDockReached = true,
                 )
 
                 VehicleCommand.ReturnHome -> current.copy(
@@ -146,6 +141,29 @@ class FakeVehicleRepository @Inject constructor(
 
     override suspend fun clearHistory() {
         logRecordDao.clear()
+    }
+
+    override suspend fun clearMonitorHistory() {
+        telemetryState.update { current ->
+            current.copy(
+                temperatureHistory = emptyList(),
+                gasHistory = emptyList(),
+                batteryHistory = emptyList(),
+                speedHistory = emptyList(),
+                mlxObjectHistory = emptyList(),
+                ahtTemperatureHistory = emptyList(),
+                ahtHumidityHistory = emptyList(),
+                mq8History = emptyList(),
+                trackHistory = emptyList(),
+                rfidHistory = emptyList(),
+                customChartHistory = emptyMap(),
+            )
+        }
+    }
+
+    override suspend fun sendRawCommand(raw: String) {
+        appendLog("CMD", "自定义发送 -> $raw")
+        telemetryState.update { it.copy(lastSentJson = raw) }
     }
 
     private fun startSimulation() {
@@ -210,7 +228,7 @@ class FakeVehicleRepository @Inject constructor(
 
         when (currentLevel) {
             AlertLevel.Normal -> appendLog("INFO", "巡检环境已恢复稳定")
-            AlertLevel.Warning -> appendLog("WARN", "温度进入预警区：${telemetry.temperatureC.toInt()}°C")
+            AlertLevel.Warning -> appendLog("WARN", "红外目标温度进入预警区：${telemetry.mlxObjectTemperatureC.toInt()}°C")
             AlertLevel.Alarm -> appendLog("ALARM", "高温/气体异常，建议准备撤离")
             AlertLevel.Critical -> appendLog("CRITICAL", "达到紧急阈值，已切入撤离态")
         }
@@ -260,6 +278,13 @@ class FakeVehicleRepository @Inject constructor(
             VehicleState.Avoiding -> max(0.10f, gasPercent - 0.03f)
             else -> max(0.08f, gasPercent - 0.02f)
         }
+        val nextMq8Raw = nextGas * 4095f
+        val nextAhtTemp = max(24f, nextTemp - 3.2f)
+        val nextAhtHum = min(85f, max(35f, 56f + nextGas * 18f))
+        val nextMlxAmb = max(24f, nextAhtTemp - 0.8f)
+        val nextTrackValue = if (cruising) (nextBattery % 16) else trackValue
+        val nextTrackBinary = nextTrackValue.toString(2).padStart(4, '0').takeLast(4)
+        val timeLabel = LocalTime.now().format(ChartTimeFormatter)
 
         val baseReturnReason = when {
             nextTemp > 80f || nextGas >= 0.80f -> ReturnReason.Emergency
@@ -314,6 +339,14 @@ class FakeVehicleRepository @Inject constructor(
         val nextLocation = if (cruising) nextCheckpoint.description else locationDescription
         val nextHomeDockReached = autoState == VehicleState.Returning && nextCheckpoint.label == "START"
 
+        val nextRfidHistory = if (cruising && nextPosition != rfidHistory.lastOrNull()) {
+            (rfidHistory + nextPosition).let { if (it.size > 24) it.takeLast(24) else it }
+        } else {
+            rfidHistory
+        }
+
+        val simJson = """{"type":"telemetry","MQ8":${nextMq8Raw.toInt()},"AHT_temp":$nextAhtTemp,"AHT_hum":$nextAhtHum,"MLX_obj":$nextTemp,"MLX_amb":$nextMlxAmb,"dist":$obstacleDistance,"bat":$nextBattery,"track":$nextTrackValue,"track_bin":"$nextTrackBinary","rfid_loc":"$nextPosition"}"""
+
         return copy(
             vehicleState = autoState,
             positionLabel = nextPosition,
@@ -321,6 +354,13 @@ class FakeVehicleRepository @Inject constructor(
             locationDescription = nextLocation,
             temperatureC = nextTemp,
             gasPercent = nextGas,
+            mq8Raw = nextMq8Raw,
+            ahtTemperatureC = nextAhtTemp,
+            ahtHumidityPercent = nextAhtHum,
+            mlxObjectTemperatureC = nextTemp,
+            mlxAmbientTemperatureC = nextMlxAmb,
+            trackValue = nextTrackValue,
+            trackBinary = nextTrackBinary,
             batteryPercent = nextBattery,
             speedMetersPerSecond = nextSpeed,
             latencyMs = nextLatency,
@@ -328,20 +368,28 @@ class FakeVehicleRepository @Inject constructor(
             obstacleDetected = obstacleDetected,
             returnReason = baseReturnReason,
             homeDockReached = nextHomeDockReached,
-            temperatureHistory = temperatureHistory.roll(nextTemp),
-            gasHistory = gasHistory.roll(nextGas),
-            batteryHistory = batteryHistory.roll(nextBattery.toFloat()),
-            speedHistory = speedHistory.roll(nextSpeed),
+            temperatureHistory = temperatureHistory.roll(ChartPoint(timeLabel, nextTemp)),
+            gasHistory = gasHistory.roll(ChartPoint(timeLabel, nextGas)),
+            batteryHistory = batteryHistory.roll(ChartPoint(timeLabel, nextBattery.toFloat())),
+            speedHistory = speedHistory.roll(ChartPoint(timeLabel, nextSpeed)),
+            mlxObjectHistory = mlxObjectHistory.roll(ChartPoint(timeLabel, nextTemp)),
+            ahtTemperatureHistory = ahtTemperatureHistory.roll(ChartPoint(timeLabel, nextAhtTemp)),
+            ahtHumidityHistory = ahtHumidityHistory.roll(ChartPoint(timeLabel, nextAhtHum)),
+            mq8History = mq8History.roll(ChartPoint(timeLabel, nextMq8Raw)),
+            trackHistory = trackHistory.roll(TrackPoint(timeLabel, nextTrackBinary)),
+            rfidHistory = nextRfidHistory,
+            lastReceivedJson = simJson,
         )
     }
 
-    private fun List<Float>.roll(next: Float, maxSamples: Int = 24): List<Float> {
+    private fun <T> List<T>.roll(next: T, maxSamples: Int = 24): List<T> {
         val merged = this + next
         return if (merged.size <= maxSamples) merged else merged.takeLast(maxSamples)
     }
 
     private companion object {
         val TimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
+        val ChartTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
     }
 
     private data class RouteCheckpoint(

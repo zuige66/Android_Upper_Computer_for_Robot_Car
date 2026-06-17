@@ -14,5 +14,7 @@ interface VehicleRepository {
     suspend fun connect(profile: ConnectionProfile)
     suspend fun disconnect()
     suspend fun sendCommand(command: VehicleCommand)
+    suspend fun sendRawCommand(raw: String)
     suspend fun clearHistory()
+    suspend fun clearMonitorHistory()
 }
