@@ -44,6 +44,7 @@ class MainViewModel @Inject constructor(
     }
     private val builtInChartStates = MutableStateFlow<Map<String, BuiltInChartState>>(emptyMap())
     private val customChartHistory = MutableStateFlow<Map<String, List<ChartPoint>>>(emptyMap())
+    private val overviewItemStates = MutableStateFlow<Map<String, OverviewItemState>>(emptyMap())
     private var autoReturnJob: Job? = null
     private var lastNotifiedState: VehicleState? = null
 
@@ -61,7 +62,8 @@ class MainViewModel @Inject constructor(
         coreState,
         builtInChartStates,
         customChartHistory,
-    ) { core, chartStates, cch ->
+        overviewItemStates,
+    ) { core, chartStates, cch, overviewStates ->
         val tab = core[0] as AppTab
         val preferences = core[1] as com.carhost.mobile.data.model.OperatorPreferences
         @Suppress("UNCHECKED_CAST")
@@ -91,6 +93,7 @@ class MainViewModel @Inject constructor(
             customCharts = preferences.customCharts,
             builtInChartStates = chartStates,
             builtInCharts = builtInCharts,
+            overviewItemStates = overviewStates,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -187,6 +190,11 @@ class MainViewModel @Inject constructor(
             is MainIntent.ToggleBuiltInChartVisible -> toggleBuiltInChartVisible(intent.chartId)
             is MainIntent.UpdateBuiltInChart -> updateBuiltInChart(intent.chartId, intent.name, intent.fieldPath)
             is MainIntent.DeleteBuiltInChart -> deleteBuiltInChart(intent.chartId)
+            MainIntent.RestoreDefaultCharts -> restoreDefaultCharts()
+            is MainIntent.DeleteOverviewItem -> deleteOverviewItem(intent.itemId)
+            is MainIntent.EditOverviewItemTitle -> editOverviewItemTitle(intent.itemId, intent.newTitle)
+            MainIntent.RestoreDefaultOverview -> restoreDefaultOverview()
+            MainIntent.ResetOverviewData -> resetOverviewData()
         }
     }
 
@@ -282,6 +290,7 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             val current = preferencesRepository.preferences.first().customCharts
             preferencesRepository.saveCustomCharts(current.map { if (it.id == chart.id) chart else it })
+            customChartHistory.update { it - chart.id }
         }
     }
 
@@ -337,7 +346,35 @@ class MainViewModel @Inject constructor(
 
     private fun deleteBuiltInChart(chartId: String) {
         builtInChartStates.update { current ->
-            current + (chartId to (current[chartId] ?: BuiltInChartState()).copy(visible = false))
+            current + (chartId to (current[chartId] ?: BuiltInChartState()).copy(deleted = true, visible = false))
+        }
+    }
+
+    private fun restoreDefaultCharts() {
+        builtInChartStates.value = emptyMap()
+    }
+
+    private fun deleteOverviewItem(itemId: String) {
+        overviewItemStates.update { current ->
+            current + (itemId to (current[itemId] ?: OverviewItemState(itemId)).copy(deleted = true))
+        }
+    }
+
+    private fun editOverviewItemTitle(itemId: String, newTitle: String) {
+        overviewItemStates.update { current ->
+            current + (itemId to (current[itemId] ?: OverviewItemState(itemId)).copy(customTitle = newTitle))
+        }
+    }
+
+    private fun restoreDefaultOverview() {
+        overviewItemStates.value = emptyMap()
+    }
+
+    private fun resetOverviewData() {
+        viewModelScope.launch {
+            vehicleRepository.resetTelemetry()
+            vehicleRepository.clearMonitorHistory()
+            customChartHistory.value = emptyMap()
         }
     }
 

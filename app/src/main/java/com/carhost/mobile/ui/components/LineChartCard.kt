@@ -48,9 +48,9 @@ fun LineChartCard(
 ) {
     val outlineColor = MaterialTheme.colorScheme.outline
     val lineColor = MaterialTheme.colorScheme.primary
-    val axisColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val axisColor = MaterialTheme.colorScheme.onSurface
 
-    Card(modifier = modifier) {
+    Column(modifier = modifier) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -188,7 +188,7 @@ fun LineChartCard(
                                 color = outlineColor,
                                 start = Offset(chartLeft, y),
                                 end = Offset(chartRight, y),
-                                strokeWidth = 1f,
+                                strokeWidth = 1.5f,
                             )
                         }
 

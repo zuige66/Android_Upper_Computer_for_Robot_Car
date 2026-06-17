@@ -26,6 +26,12 @@ data class BuiltInChartState(
     val customFieldPath: String? = null,
 )
 
+data class OverviewItemState(
+    val id: String,
+    val customTitle: String? = null,
+    val deleted: Boolean = false,
+)
+
 data class MainUiState(
     val selectedTab: AppTab = AppTab.Control,
     val preferences: OperatorPreferences = OperatorPreferences(),
@@ -39,6 +45,7 @@ data class MainUiState(
     val customCharts: List<CustomChartDef> = emptyList(),
     val builtInChartStates: Map<String, BuiltInChartState> = emptyMap(),
     val builtInCharts: List<BuiltInChartDef> = emptyList(),
+    val overviewItemStates: Map<String, OverviewItemState> = emptyMap(),
 ) {
     val connected: Boolean
         get() = telemetry.linkState == LinkState.Online || telemetry.linkState == LinkState.Connected

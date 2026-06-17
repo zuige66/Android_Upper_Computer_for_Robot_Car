@@ -151,6 +151,11 @@ class TcpVehicleRepository @Inject constructor(
         }
     }
 
+    override suspend fun resetTelemetry() {
+        val currentLink = telemetryState.value.linkState
+        telemetryState.value = TelemetrySnapshot(linkState = currentLink)
+    }
+
     override suspend fun sendRawCommand(raw: String) {
         appendLog("CMD", "自定义发送 -> $raw")
         sendWireCommand(raw)

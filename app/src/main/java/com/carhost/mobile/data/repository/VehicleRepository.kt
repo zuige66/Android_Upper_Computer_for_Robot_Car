@@ -17,4 +17,5 @@ interface VehicleRepository {
     suspend fun sendRawCommand(raw: String)
     suspend fun clearHistory()
     suspend fun clearMonitorHistory()
+    suspend fun resetTelemetry()
 }

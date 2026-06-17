@@ -33,4 +33,9 @@ sealed interface MainIntent {
     data class ToggleBuiltInChartVisible(val chartId: String) : MainIntent
     data class UpdateBuiltInChart(val chartId: String, val name: String, val fieldPath: String) : MainIntent
     data class DeleteBuiltInChart(val chartId: String) : MainIntent
+    data object RestoreDefaultCharts : MainIntent
+    data class DeleteOverviewItem(val itemId: String) : MainIntent
+    data class EditOverviewItemTitle(val itemId: String, val newTitle: String) : MainIntent
+    data object RestoreDefaultOverview : MainIntent
+    data object ResetOverviewData : MainIntent
 }

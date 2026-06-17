@@ -34,14 +34,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.DashboardCustomize
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.MonitorHeart
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SettingsRemote
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -152,30 +156,55 @@ private fun CarHostScaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text("Host Computer")
-                    }
+                    Text("Host Computer")
                 },
                 actions = {
-                    AssistChip(
-                        onClick = { },
-                        label = {
-                            Text(
-                                when (uiState.telemetry.linkState) {
-                                    LinkState.Online,
-                                    LinkState.Connected -> "已连接"
-                                    LinkState.Connecting -> "连接中"
-                                    LinkState.Fault -> "链路故障"
-                                    LinkState.Offline -> "离线"
-                                }
-                            )
-                        },
-                    )
+                    val linkText = when (uiState.telemetry.linkState) {
+                        LinkState.Online,
+                        LinkState.Connected -> "已连接"
+                        LinkState.Connecting -> "连接中"
+                        LinkState.Fault -> "链路故障"
+                        LinkState.Offline -> "离线"
+                    }
+                    val linkColor = when (uiState.telemetry.linkState) {
+                        LinkState.Online,
+                        LinkState.Connected -> MaterialTheme.colorScheme.primaryContainer
+                        LinkState.Connecting -> MaterialTheme.colorScheme.tertiaryContainer
+                        LinkState.Fault -> MaterialTheme.colorScheme.errorContainer
+                        LinkState.Offline -> MaterialTheme.colorScheme.surfaceVariant
+                    }
+                    val linkTextColor = when (uiState.telemetry.linkState) {
+                        LinkState.Online,
+                        LinkState.Connected -> MaterialTheme.colorScheme.onPrimaryContainer
+                        LinkState.Connecting -> MaterialTheme.colorScheme.onTertiaryContainer
+                        LinkState.Fault -> MaterialTheme.colorScheme.onErrorContainer
+                        LinkState.Offline -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                    Box(
+                        modifier = Modifier
+                            .padding(end = 12.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(linkColor)
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                    ) {
+                        Text(
+                            text = linkText,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = linkTextColor,
+                        )
+                    }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ),
             )
         },
         bottomBar = {
-            NavigationBar(modifier = Modifier.navigationBarsPadding()) {
+            NavigationBar(
+                modifier = Modifier.navigationBarsPadding().height(96.dp),
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                tonalElevation = 0.dp,
+            ) {
                 tabItems().forEach { item ->
                     NavigationBarItem(
                         selected = uiState.selectedTab == item.tab,
@@ -199,7 +228,7 @@ private fun CarHostScaffold(
             color = MaterialTheme.colorScheme.background,
         ) {
             when (uiState.selectedTab) {
-                AppTab.Overview -> OverviewScreen(uiState = uiState)
+                AppTab.Overview -> OverviewScreen(uiState = uiState, onIntent = onIntent)
                 AppTab.Monitor -> MonitorScreen(uiState = uiState, onIntent = onIntent)
                 AppTab.Control -> ControlScreen(uiState = uiState, onIntent = onIntent)
                 AppTab.History -> HistoryScreen(uiState = uiState, onIntent = onIntent)
@@ -210,7 +239,23 @@ private fun CarHostScaffold(
 }
 
 @Composable
-private fun OverviewScreen(uiState: MainUiState) {
+private fun OverviewScreen(
+    uiState: MainUiState,
+    onIntent: (MainIntent) -> Unit,
+) {
+    var showEditDialog by remember { mutableStateOf(false) }
+    var editingItemId by remember { mutableStateOf("") }
+    var editingTitle by remember { mutableStateOf("") }
+
+    val overviewItems = listOf(
+        "vehicle_state" to Triple("车辆状态", uiState.telemetry.vehicleState.label, "当前工位 ${uiState.telemetry.positionLabel} · ${uiState.telemetry.locationDescription}"),
+        "link_state" to Triple("连接链路", uiState.telemetry.linkState.label, "TCP Socket 当前连接状态"),
+        "rfid_tag" to Triple("RFID 点位", uiState.telemetry.rfidTag, "最近一次识别：${uiState.telemetry.locationDescription}"),
+        "battery" to Triple("电池余量", "${uiState.telemetry.batteryPercent}%", "返航原因：${uiState.telemetry.returnReason.label}"),
+        "environment" to Triple("环境概况", "${uiState.telemetry.temperatureC.toInt()}°C / ${(uiState.telemetry.gasPercent * 100).toInt()}%", "红外目标温度与 MQ8 原始值换算结果"),
+        "obstacle" to Triple("防撞状态", if (uiState.telemetry.obstacleDetected) "已触发" else "安全", "前方距离 ${uiState.telemetry.obstacleDistanceCm} cm，仅在巡检/撤离时启用"),
+    )
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -222,44 +267,99 @@ private fun OverviewScreen(uiState: MainUiState) {
             }
         }
 
+        // Action bar: restore + clear (capsule style)
+        item {
+            Card {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .clickable { onIntent(MainIntent.RestoreDefaultOverview) }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("恢复", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(MaterialTheme.colorScheme.errorContainer)
+                            .clickable { onIntent(MainIntent.ResetOverviewData) }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("清除", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Overview metric items
         item {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                MetricRow(
-                    title = "车辆状态",
-                    value = uiState.telemetry.vehicleState.label,
-                    supporting = "当前工位 ${uiState.telemetry.positionLabel} · ${uiState.telemetry.locationDescription}",
-                )
-                MetricRow(
-                    title = "连接链路",
-                    value = uiState.telemetry.linkState.label,
-                    supporting = "TCP Socket 当前连接状态",
-                )
-                MetricRow(
-                    title = "RFID 点位",
-                    value = uiState.telemetry.rfidTag,
-                    supporting = "最近一次识别：${uiState.telemetry.locationDescription}",
-                )
-                MetricRow(
-                    title = "电池余量",
-                    value = "${uiState.telemetry.batteryPercent}%",
-                    supporting = "返航原因：${uiState.telemetry.returnReason.label}",
-                )
-                MetricRow(
-                    title = "环境概况",
-                    value = "${uiState.telemetry.temperatureC.toInt()}°C / ${(uiState.telemetry.gasPercent * 100).toInt()}%",
-                    supporting = "红外目标温度与 MQ8 原始值换算结果",
-                )
-                MetricRow(
-                    title = "防撞状态",
-                    value = if (uiState.telemetry.obstacleDetected) "已触发" else "安全",
-                    supporting = "前方距离 ${uiState.telemetry.obstacleDistanceCm} cm，仅在巡检/撤离时启用",
-                )
+                overviewItems.forEach { (itemId, triple) ->
+                    val (defaultTitle, value, supporting) = triple
+                    val state = uiState.overviewItemStates[itemId]
+                    if (state == null || !state.deleted) {
+                        val displayTitle = state?.customTitle ?: defaultTitle
+                        EditableMetricRow(
+                            title = displayTitle,
+                            value = value,
+                            supporting = supporting,
+                            onEdit = {
+                                editingItemId = itemId
+                                editingTitle = displayTitle
+                                showEditDialog = true
+                            },
+                            onDelete = { onIntent(MainIntent.DeleteOverviewItem(itemId)) },
+                        )
+                    }
+                }
             }
         }
 
         item {
             RouteStripCard(uiState = uiState)
         }
+    }
+
+    if (showEditDialog) {
+        AlertDialog(
+            onDismissRequest = { showEditDialog = false },
+            title = { Text("编辑标题") },
+            text = {
+                OutlinedTextField(
+                    value = editingTitle,
+                    onValueChange = { editingTitle = it },
+                    label = { Text("显示名称") },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onIntent(MainIntent.EditOverviewItemTitle(editingItemId, editingTitle))
+                    showEditDialog = false
+                }) { Text("保存") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditDialog = false }) { Text("取消") }
+            },
+        )
     }
 }
 
@@ -314,75 +414,59 @@ private fun MonitorScreen(
         contentPadding = PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // Top bar: title + clear button
+        // Unified action bar: restore + clear + add (capsule style)
         item {
             Card {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(18.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Text(
-                            text = "实时监控",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            text = "实时数据图表和状态指标",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Spacer(modifier = Modifier.size(12.dp))
-                    Button(
-                        onClick = { onIntent(MainIntent.ClearMonitorData) },
-                        enabled = hasAnyHistory,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                        ),
-                    ) {
-                        Text("清除所有数据")
-                    }
-                }
-            }
-        }
-
-        // Custom charts header
-        item {
-            Card {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(18.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "自定义图表",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    IconButton(onClick = { openAddCustomDialog() }) {
-                        Icon(Icons.Outlined.Add, contentDescription = "新建图表")
-                    }
-                }
-            }
-        }
-
-        if (uiState.customCharts.isEmpty()) {
-            item {
-                Card {
-                    Text(
-                        text = "点击上方 + 新建自定义图表，输入 JSON 字段路径即可绘图",
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(18.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                            .weight(1f)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .clickable { onIntent(MainIntent.RestoreDefaultCharts) }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("恢复", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(MaterialTheme.colorScheme.errorContainer)
+                            .clickable { onIntent(MainIntent.ClearMonitorData) }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("清除", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .clickable { openAddCustomDialog() }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("自定义", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                    }
                 }
             }
         }
@@ -407,21 +491,25 @@ private fun MonitorScreen(
             }
         }
 
-        // Built-in charts header
-        item {
-            Card {
-                Text(
-                    text = "内置图表",
-                    modifier = Modifier.fillMaxWidth().padding(18.dp),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
+        // Built-in charts (from data-driven list, skip deleted)
+        items(
+            uiState.builtInCharts.filter { chart ->
+                val state = uiState.builtInChartStates[chart.id] ?: BuiltInChartState()
+                !state.deleted
+            }.size,
+            key = { index ->
+                val visibleCharts = uiState.builtInCharts.filter { chart ->
+                    val state = uiState.builtInChartStates[chart.id] ?: BuiltInChartState()
+                    !state.deleted
+                }
+                "builtin_${visibleCharts[index].id}"
+            },
+        ) { index ->
+            val visibleCharts = uiState.builtInCharts.filter { chart ->
+                val state = uiState.builtInChartStates[chart.id] ?: BuiltInChartState()
+                !state.deleted
             }
-        }
-
-        // Built-in charts (from data-driven list)
-        items(uiState.builtInCharts.size, key = { "builtin_${uiState.builtInCharts[it].id}" }) { index ->
-            val chart = uiState.builtInCharts[index]
+            val chart = visibleCharts[index]
             val state = uiState.builtInChartStates[chart.id] ?: BuiltInChartState()
 
             if (state.visible) {
@@ -464,6 +552,7 @@ private fun MonitorScreen(
                     title = chart.defaultName,
                     subtitle = chart.subtitle,
                     onEdit = { openEditBuiltInDialog(chart) },
+                    onHide = { onIntent(MainIntent.ToggleBuiltInChartVisible(chart.id)) },
                     onDelete = { onIntent(MainIntent.DeleteBuiltInChart(chart.id)) },
                 ) {
                     chartContent()
@@ -471,7 +560,7 @@ private fun MonitorScreen(
             } else {
                 // Hidden chart: collapsed row with restore button
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f)),
                 ) {
                     Row(
                         modifier = Modifier
@@ -487,7 +576,7 @@ private fun MonitorScreen(
                         )
                         IconButton(onClick = { onIntent(MainIntent.ToggleBuiltInChartVisible(chart.id)) }) {
                             Icon(
-                                Icons.Outlined.MonitorHeart,
+                                Icons.Outlined.VisibilityOff,
                                 contentDescription = "恢复显示",
                                 modifier = Modifier.size(18.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1430,6 +1519,54 @@ private fun MetricRow(
     }
 }
 
+@Composable
+private fun EditableMetricRow(
+    title: String,
+    value: String,
+    supporting: String,
+    onEdit: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
+) {
+    Card {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "$title: $value",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
+                Row {
+                    if (onEdit != null) {
+                        IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Outlined.Edit, contentDescription = "编辑", modifier = Modifier.size(16.dp))
+                        }
+                    }
+                    if (onDelete != null) {
+                        IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Outlined.Delete, contentDescription = "删除", modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+            }
+            Text(
+                text = supporting,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CommandChip(
@@ -1517,6 +1654,7 @@ private fun GrayChartCard(
     subtitle: String,
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
+    onHide: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     Card {
@@ -1543,11 +1681,16 @@ private fun GrayChartCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (onEdit != null || onDelete != null) {
+                if (onEdit != null || onDelete != null || onHide != null) {
                     Row {
                         if (onEdit != null) {
                             IconButton(onClick = onEdit) {
                                 Icon(Icons.Outlined.Edit, contentDescription = "编辑", modifier = Modifier.size(18.dp))
+                            }
+                        }
+                        if (onHide != null) {
+                            IconButton(onClick = onHide) {
+                                Icon(Icons.Outlined.Visibility, contentDescription = "隐藏", modifier = Modifier.size(18.dp))
                             }
                         }
                         if (onDelete != null) {
