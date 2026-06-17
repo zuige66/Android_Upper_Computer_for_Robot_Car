@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.Canvas
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -79,6 +80,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalView
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -105,6 +108,7 @@ import com.carhost.mobile.ui.components.LineChartCard
 import com.carhost.mobile.ui.components.RfidFlowCard
 import com.carhost.mobile.ui.components.TrackBinaryCard
 import com.carhost.mobile.ui.theme.CarHostTheme
+import com.carhost.mobile.ui.theme.themeSwatches
 
 @Composable
 fun CarHostApp(
@@ -1215,14 +1219,6 @@ private fun SettingsScreen(
     }
 }
 
-private val themeSwatchColors = mapOf(
-    ColorTheme.Default to Color(0xFFF2BC6C),
-    ColorTheme.RedYellowPink to Color(0xFFFFB4A8),
-    ColorTheme.YellowGreenGray to Color(0xFFA8D88C),
-    ColorTheme.BlueGreenGray to Color(0xFF80CBC4),
-    ColorTheme.BlackWhiteGray to Color(0xFFD0D0D0),
-)
-
 @Composable
 private fun ColorThemeSection(
     currentTheme: ColorTheme,
@@ -1252,38 +1248,34 @@ private fun ColorThemeSection(
                 )
             }
 
-            // Color swatches row
+            // 3-color Morandi swatches row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ColorTheme.entries.forEachIndexed { index, theme ->
+                ColorTheme.entries.forEach { theme ->
+                    val swatch = themeSwatches[theme] ?: return@forEach
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         Box(
                             modifier = Modifier
-                                .requiredSize(38.dp)
+                                .size(44.dp)
                                 .clip(CircleShape)
-                                .background(themeSwatchColors[theme]!!)
                                 .then(
                                     if (currentTheme == theme)
-                                        Modifier
-                                            .border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                                        Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
                                     else Modifier
                                 )
                                 .clickable { onThemeSelected(theme) },
-                            contentAlignment = Alignment.Center,
                         ) {
-                            if (currentTheme == theme) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Palette,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.surface,
-                                )
+                            Canvas(modifier = Modifier.size(44.dp)) {
+                                val half = size.height / 2f
+                                drawArc(swatch.surface, 180f, 180f, true, Offset.Zero)
+                                drawArc(swatch.primary, 0f, 90f, true, Offset(0f, half))
+                                drawArc(swatch.tertiary, 90f, 90f, true, Offset(0f, half))
                             }
                         }
                         Text(

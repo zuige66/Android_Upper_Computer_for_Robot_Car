@@ -18,176 +18,217 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import com.carhost.mobile.data.model.ColorTheme
 
-private val WarmLightScheme = lightColorScheme(
-    primary = Color(0xFF7C4D0B),
-    onPrimary = Color(0xFFFFFFFF),
-    secondary = Color(0xFF50624C),
-    onSecondary = Color(0xFFFFFFFF),
-    tertiary = Color(0xFF006782),
-    onTertiary = Color(0xFFFFFFFF),
+// —— Morandi palette: muted, low-saturation, harmonious tones ————
+// Each theme defines 3 key colors: surface (card), primary (button), tertiary (nav capsule)
+
+// ========== 默认 灰蓝紫 ==========
+private val DefaultLight = lightColorScheme(
+    surface = Color(0xFFFFF8F0),
+    primary = Color(0xFF7B73B0),
+    tertiary = Color(0xFF9E92C4),
+    secondary = Color(0xFF8E8A9E),
     background = Color(0xFFF7F3EC),
-    onBackground = Color(0xFF1E1B16),
-    surface = Color(0xFFFFFBFF),
+    surfaceVariant = Color(0xFFECE6DC),
     onSurface = Color(0xFF1E1B16),
-    surfaceVariant = Color(0xFFECE0CF),
-    onSurfaceVariant = Color(0xFF4D4639),
+    onPrimary = Color(0xFFFFFFFF),
+    onTertiary = Color(0xFFFFFFFF),
+    onSecondary = Color(0xFFFFFFFF),
+    onBackground = Color(0xFF1E1B16),
+    onSurfaceVariant = Color(0xFF4D473E),
     error = Color(0xFF9F2D22),
     onError = Color(0xFFFFFFFF),
 )
 
-private val WarmDarkScheme = darkColorScheme(
-    primary = Color(0xFFF2BC6C),
-    onPrimary = Color(0xFF452B00),
-    secondary = Color(0xFFB8CCB2),
-    onSecondary = Color(0xFF243424),
-    tertiary = Color(0xFF8FD0E8),
-    onTertiary = Color(0xFF003545),
-    background = Color(0xFF15120E),
-    onBackground = Color(0xFFEAE2D7),
+private val DefaultDark = darkColorScheme(
     surface = Color(0xFF1D1A16),
+    primary = Color(0xFF9A93CE),
+    tertiary = Color(0xFFB8AED4),
+    secondary = Color(0xFF8E8A9E),
+    background = Color(0xFF15120E),
+    surfaceVariant = Color(0xFF36322C),
     onSurface = Color(0xFFEAE2D7),
-    surfaceVariant = Color(0xFF4D4639),
-    onSurfaceVariant = Color(0xFFD0C4B4),
+    onPrimary = Color(0xFF2A2550),
+    onTertiary = Color(0xFF2E2550),
+    onSecondary = Color(0xFF2E2A3E),
+    onBackground = Color(0xFFEAE2D7),
+    onSurfaceVariant = Color(0xFFCAC2B4),
     error = Color(0xFFFFB4A8),
     onError = Color(0xFF5F140D),
 )
 
-// —— Color themes ——————————————————————————
-
+// ========== 红黄粉 ==========
 private val RedYellowPinkLight = lightColorScheme(
-    primary = Color(0xFFB33A3A),
+    surface = Color(0xFFFDF0EC),
+    primary = Color(0xFFD4A898),
+    tertiary = Color(0xFFD4B0B8),
+    secondary = Color(0xFFC4A098),
+    background = Color(0xFFF8F0EC),
+    surfaceVariant = Color(0xFFF0E2DC),
+    onSurface = Color(0xFF1E1B16),
     onPrimary = Color(0xFFFFFFFF),
-    secondary = Color(0xFFD4A017),
-    onSecondary = Color(0xFFFFFFFF),
-    tertiary = Color(0xFFD4739A),
     onTertiary = Color(0xFFFFFFFF),
-    background = Color(0xFFFDF6F0),
-    onBackground = Color(0xFF1C1B1F),
-    surface = Color(0xFFFFFBFE),
-    onSurface = Color(0xFF1C1B1F),
-    surfaceVariant = Color(0xFFF5E0DC),
-    onSurfaceVariant = Color(0xFF534341),
-    error = Color(0xFFB3261E),
+    onSecondary = Color(0xFFFFFFFF),
+    onBackground = Color(0xFF1E1B16),
+    onSurfaceVariant = Color(0xFF4D403C),
+    error = Color(0xFF9F2D22),
     onError = Color(0xFFFFFFFF),
 )
 
 private val RedYellowPinkDark = darkColorScheme(
-    primary = Color(0xFFFFB4A8),
-    onPrimary = Color(0xFF690020),
-    secondary = Color(0xFFFDD663),
-    onSecondary = Color(0xFF3E2D00),
-    tertiary = Color(0xFFFFB0C8),
-    onTertiary = Color(0xFF5E113A),
-    background = Color(0xFF15120E),
-    onBackground = Color(0xFFEAE2D7),
-    surface = Color(0xFF1D1A16),
+    surface = Color(0xFF2D2222),
+    primary = Color(0xFFD4A898),
+    tertiary = Color(0xFFD4B0B8),
+    secondary = Color(0xFFB89890),
+    background = Color(0xFF181212),
+    surfaceVariant = Color(0xFF3D302E),
     onSurface = Color(0xFFEAE2D7),
-    surfaceVariant = Color(0xFF534341),
-    onSurfaceVariant = Color(0xFFD8C2BC),
+    onPrimary = Color(0xFF3A2018),
+    onTertiary = Color(0xFF3A2028),
+    onSecondary = Color(0xFF2E1E1A),
+    onBackground = Color(0xFFEAE2D7),
+    onSurfaceVariant = Color(0xFFCAB8B4),
     error = Color(0xFFFFB4A8),
-    onError = Color(0xFF601410),
+    onError = Color(0xFF5F140D),
 )
 
+// ========== 黄绿灰 ==========
 private val YellowGreenGrayLight = lightColorScheme(
-    primary = Color(0xFF4E7A3E),
+    surface = Color(0xFFF5F2E8),
+    primary = Color(0xFFA8BC90),
+    tertiary = Color(0xFFA8AEA8),
+    secondary = Color(0xFFB8BC9E),
+    background = Color(0xFFF0F0E8),
+    surfaceVariant = Color(0xFFE8E4D8),
+    onSurface = Color(0xFF1E1B16),
     onPrimary = Color(0xFFFFFFFF),
-    secondary = Color(0xFFA8B56A),
-    onSecondary = Color(0xFFFFFFFF),
-    tertiary = Color(0xFF7A8B9E),
     onTertiary = Color(0xFFFFFFFF),
-    background = Color(0xFFF8FBF4),
-    onBackground = Color(0xFF1C1B1F),
-    surface = Color(0xFFFFFBFF),
-    onSurface = Color(0xFF1C1B1F),
-    surfaceVariant = Color(0xFFE2ECD6),
-    onSurfaceVariant = Color(0xFF43483E),
-    error = Color(0xFFB3261E),
+    onSecondary = Color(0xFFFFFFFF),
+    onBackground = Color(0xFF1E1B16),
+    onSurfaceVariant = Color(0xFF4D4A3E),
+    error = Color(0xFF9F2D22),
     onError = Color(0xFFFFFFFF),
 )
 
 private val YellowGreenGrayDark = darkColorScheme(
-    primary = Color(0xFFA8D88C),
-    onPrimary = Color(0xFF1D3A12),
-    secondary = Color(0xFFCED992),
-    onSecondary = Color(0xFF2E331B),
-    tertiary = Color(0xFFB0C4D4),
-    onTertiary = Color(0xFF1B2D3C),
-    background = Color(0xFF15120E),
-    onBackground = Color(0xFFEAE2D7),
-    surface = Color(0xFF1D1A16),
+    surface = Color(0xFF242822),
+    primary = Color(0xFFA8BC90),
+    tertiary = Color(0xFFA8AEA8),
+    secondary = Color(0xFF8E9E82),
+    background = Color(0xFF181A14),
+    surfaceVariant = Color(0xFF343830),
     onSurface = Color(0xFFEAE2D7),
-    surfaceVariant = Color(0xFF43483E),
-    onSurfaceVariant = Color(0xFFC4C8B8),
+    onPrimary = Color(0xFF1E3018),
+    onTertiary = Color(0xFF1E2A1E),
+    onSecondary = Color(0xFF1E2A1A),
+    onBackground = Color(0xFFEAE2D7),
+    onSurfaceVariant = Color(0xFFC4C4B4),
     error = Color(0xFFFFB4A8),
-    onError = Color(0xFF601410),
+    onError = Color(0xFF5F140D),
 )
 
+// ========== 蓝绿灰 ==========
 private val BlueGreenGrayLight = lightColorScheme(
-    primary = Color(0xFF2E7D6B),
+    surface = Color(0xFFEEF2F0),
+    primary = Color(0xFF80B8C0),
+    tertiary = Color(0xFFA8B4B8),
+    secondary = Color(0xFF90A8B0),
+    background = Color(0xFFE8EEEC),
+    surfaceVariant = Color(0xFFDCE4E0),
+    onSurface = Color(0xFF1E1B16),
     onPrimary = Color(0xFFFFFFFF),
-    secondary = Color(0xFF3A7CA5),
-    onSecondary = Color(0xFFFFFFFF),
-    tertiary = Color(0xFF7E8B9E),
     onTertiary = Color(0xFFFFFFFF),
-    background = Color(0xFFF2F9FA),
-    onBackground = Color(0xFF1C1B1F),
-    surface = Color(0xFFFFFBFF),
-    onSurface = Color(0xFF1C1B1F),
-    surfaceVariant = Color(0xFFD8EAE8),
-    onSurfaceVariant = Color(0xFF3F4948),
-    error = Color(0xFFB3261E),
+    onSecondary = Color(0xFFFFFFFF),
+    onBackground = Color(0xFF1E1B16),
+    onSurfaceVariant = Color(0xFF3D4A48),
+    error = Color(0xFF9F2D22),
     onError = Color(0xFFFFFFFF),
 )
 
 private val BlueGreenGrayDark = darkColorScheme(
-    primary = Color(0xFF80CBC4),
-    onPrimary = Color(0xFF003B36),
-    secondary = Color(0xFF81D4FA),
-    onSecondary = Color(0xFF003549),
-    tertiary = Color(0xFFB0BEC5),
-    onTertiary = Color(0xFF1D2F3A),
-    background = Color(0xFF15120E),
-    onBackground = Color(0xFFEAE2D7),
-    surface = Color(0xFF1D1A16),
+    surface = Color(0xFF22282A),
+    primary = Color(0xFF80B8C0),
+    tertiary = Color(0xFFA8B4B8),
+    secondary = Color(0xFF7098A0),
+    background = Color(0xFF161A1C),
+    surfaceVariant = Color(0xFF32383A),
     onSurface = Color(0xFFEAE2D7),
-    surfaceVariant = Color(0xFF3F4948),
-    onSurfaceVariant = Color(0xFFC0CBC8),
+    onPrimary = Color(0xFF10303A),
+    onTertiary = Color(0xFF1A2E3A),
+    onSecondary = Color(0xFF142A32),
+    onBackground = Color(0xFFEAE2D7),
+    onSurfaceVariant = Color(0xFFBCC4C4),
     error = Color(0xFFFFB4A8),
-    onError = Color(0xFF601410),
+    onError = Color(0xFF5F140D),
 )
 
+// ========== 黑白灰 ==========
 private val BlackWhiteGrayLight = lightColorScheme(
-    primary = Color(0xFF505050),
-    onPrimary = Color(0xFFFFFFFF),
-    secondary = Color(0xFF6F6F6F),
-    onSecondary = Color(0xFFFFFFFF),
-    tertiary = Color(0xFF8E8E8E),
+    surface = Color(0xFFF8F8F8),
+    primary = Color(0xFFB8B8B8),
+    tertiary = Color(0xFF989898),
+    secondary = Color(0xFFA8A8A8),
+    background = Color(0xFFF0F0F0),
+    surfaceVariant = Color(0xFFE8E8E8),
+    onSurface = Color(0xFF1E1B16),
+    onPrimary = Color(0xFF2E2E2E),
     onTertiary = Color(0xFFFFFFFF),
-    background = Color(0xFFFBFBFB),
-    onBackground = Color(0xFF1C1B1F),
-    surface = Color(0xFFFFFBFF),
-    onSurface = Color(0xFF1C1B1F),
-    surfaceVariant = Color(0xFFE0E0E0),
-    onSurfaceVariant = Color(0xFF494848),
-    error = Color(0xFFB3261E),
+    onSecondary = Color(0xFFFFFFFF),
+    onBackground = Color(0xFF1E1B16),
+    onSurfaceVariant = Color(0xFF4A4848),
+    error = Color(0xFF9F2D22),
     onError = Color(0xFFFFFFFF),
 )
 
 private val BlackWhiteGrayDark = darkColorScheme(
-    primary = Color(0xFFD0D0D0),
-    onPrimary = Color(0xFF2D2D2D),
-    secondary = Color(0xFFB0B0B0),
-    onSecondary = Color(0xFF2D2D2D),
-    tertiary = Color(0xFF929292),
-    onTertiary = Color(0xFF1C1B1F),
-    background = Color(0xFF15120E),
-    onBackground = Color(0xFFEAE2D7),
-    surface = Color(0xFF1D1A16),
+    surface = Color(0xFF1A1A1A),
+    primary = Color(0xFFC8C8C8),
+    tertiary = Color(0xFF989898),
+    secondary = Color(0xFFA8A8A8),
+    background = Color(0xFF121212),
+    surfaceVariant = Color(0xFF2A2A2A),
     onSurface = Color(0xFFEAE2D7),
-    surfaceVariant = Color(0xFF444444),
-    onSurfaceVariant = Color(0xFFCAC4C0),
+    onPrimary = Color(0xFF2E2E2E),
+    onTertiary = Color(0xFF2E2E2E),
+    onSecondary = Color(0xFF2E2E2E),
+    onBackground = Color(0xFFEAE2D7),
+    onSurfaceVariant = Color(0xFFC4C4C4),
     error = Color(0xFFFFB4A8),
-    onError = Color(0xFF601410),
+    onError = Color(0xFF5F140D),
+)
+
+// —— Swatch colors for the picker UI (the 3 Morandi colors per theme) ————
+data class ThemeSwatchColors(
+    val surface: Color,
+    val primary: Color,
+    val tertiary: Color,
+)
+
+val themeSwatches = mapOf(
+    ColorTheme.Default to ThemeSwatchColors(
+        surface = Color(0xFF1D1A16),
+        primary = Color(0xFF9A93CE),
+        tertiary = Color(0xFFB8AED4),
+    ),
+    ColorTheme.RedYellowPink to ThemeSwatchColors(
+        surface = Color(0xFF2D2222),
+        primary = Color(0xFFD4A898),
+        tertiary = Color(0xFFD4B0B8),
+    ),
+    ColorTheme.YellowGreenGray to ThemeSwatchColors(
+        surface = Color(0xFF242822),
+        primary = Color(0xFFA8BC90),
+        tertiary = Color(0xFFA8AEA8),
+    ),
+    ColorTheme.BlueGreenGray to ThemeSwatchColors(
+        surface = Color(0xFF22282A),
+        primary = Color(0xFF80B8C0),
+        tertiary = Color(0xFFA8B4B8),
+    ),
+    ColorTheme.BlackWhiteGray to ThemeSwatchColors(
+        surface = Color(0xFF1A1A1A),
+        primary = Color(0xFFC8C8C8),
+        tertiary = Color(0xFF989898),
+    ),
 )
 
 // —— Contrast adjustment ————————————————————
@@ -195,15 +236,15 @@ private val BlackWhiteGrayDark = darkColorScheme(
 private fun applyContrast(scheme: ColorScheme, contrast: Float): ColorScheme {
     if (contrast == 0.5f) return scheme
     val bg = scheme.background
-    val maxSurface = Color(
+    val highSurface = Color(
         red = (bg.red + 0.18f).coerceIn(0f, 1f),
         green = (bg.green + 0.12f).coerceIn(0f, 1f),
         blue = (bg.blue + 0.12f).coerceIn(0f, 1f),
         alpha = 1f,
     )
     val surf = when {
-        contrast < 0.5f -> lerpColor(scheme.background, scheme.surface, contrast * 2f)
-        else -> lerpColor(scheme.surface, maxSurface, (contrast - 0.5f) * 2f)
+        contrast < 0.5f -> lerpColor(bg, scheme.surface, contrast * 2f)
+        else -> lerpColor(scheme.surface, highSurface, (contrast - 0.5f) * 2f)
     }
     return scheme.copy(surface = surf)
 }
@@ -222,7 +263,7 @@ private fun themeColorScheme(
     theme: ColorTheme,
     darkTheme: Boolean,
 ): ColorScheme = when (theme) {
-    ColorTheme.Default -> if (darkTheme) WarmDarkScheme else WarmLightScheme
+    ColorTheme.Default -> if (darkTheme) DefaultDark else DefaultLight
     ColorTheme.RedYellowPink -> if (darkTheme) RedYellowPinkDark else RedYellowPinkLight
     ColorTheme.YellowGreenGray -> if (darkTheme) YellowGreenGrayDark else YellowGreenGrayLight
     ColorTheme.BlueGreenGray -> if (darkTheme) BlueGreenGrayDark else BlueGreenGrayLight

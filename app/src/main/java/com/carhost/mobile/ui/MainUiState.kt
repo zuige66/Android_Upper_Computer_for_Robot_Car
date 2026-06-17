@@ -21,6 +21,7 @@ data class BuiltInChartDef(
 
 data class BuiltInChartState(
     val visible: Boolean = true,
+    val deleted: Boolean = false,
     val customName: String? = null,
     val customFieldPath: String? = null,
 )
