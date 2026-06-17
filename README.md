@@ -53,6 +53,25 @@
 3. 在连接层补上断线重连、心跳和 ACK 超时。
 4. 如果你们后面加云端中转，再补 Retrofit/OkHttp 的 REST 网关层。
 
+## 统一胶囊灰色 UI 风格
+
+所有 5 个页面统一使用 Material 3 Card 无显式背景色的胶囊式卡片布局，适配深色模式的蓝灰色调：
+
+- **总览**：每个 `MetricRow` 独立灰色卡片展示状态指标 + `RouteStripCard` 路线映射卡片
+- **监控**：页面 header、自定义/内置图表标题区均包裹在灰色卡片中，图表区域不再有内框黑子
+- **控制**：连接配置、快速控制两大区块各为独立灰色卡片
+- **历史**：页面 header、日志条目均为灰色卡片包裹
+- **设置**：每个 toggle 独立灰色卡片 + JSON 数据格式 + 架构说明卡片
+
+### 关键修改
+
+| 文件 | 改动 |
+|------|------|
+| `CarHostApp.kt` | 移除所有 `surfaceContainerLow` 显式颜色，统一为 `Card { }`（4 个 header 包裹 + MetricRow / GrayChartCard / RouteStripCard / 空状态 / 日志条目） |
+| `LineChartCard.kt` | 移除内层 Card 显式背景色；轴线色从 `outlineVariant` 改为 `outline` 提升深色模式对比度 |
+| `RfidFlowCard.kt` | 移除 `surfaceContainerLow` 显色，统配灰色卡片 |
+| `TrackBinaryCard.kt` | 同上 |
+
 ## 当前限制
 
 - 这个工作区里没有 Android SDK / Gradle Wrapper，所以我先把源码和构建脚本补齐了，但没有在本机完成 APK 构建验证。
