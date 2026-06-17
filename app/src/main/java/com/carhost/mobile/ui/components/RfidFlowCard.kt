@@ -44,10 +44,7 @@ fun RfidFlowCard(
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val displayLocations = locations.filter { it.isNotBlank() && it.lowercase() != "unknown" }
 
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
+    Card(modifier = modifier) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

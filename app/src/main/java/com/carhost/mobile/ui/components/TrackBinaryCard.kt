@@ -34,10 +34,7 @@ fun TrackBinaryCard(
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val samples = values.takeLast(12)
 
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
+    Card(modifier = modifier) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

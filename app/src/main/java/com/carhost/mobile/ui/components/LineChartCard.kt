@@ -46,14 +46,11 @@ fun LineChartCard(
     yRange: ClosedFloatingPointRange<Float>? = null,
     modifier: Modifier = Modifier,
 ) {
-    val outlineColor = MaterialTheme.colorScheme.outlineVariant
+    val outlineColor = MaterialTheme.colorScheme.outline
     val lineColor = MaterialTheme.colorScheme.primary
     val axisColor = MaterialTheme.colorScheme.onSurfaceVariant
 
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
+    Card(modifier = modifier) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
