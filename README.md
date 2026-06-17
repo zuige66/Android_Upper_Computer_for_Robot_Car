@@ -1,78 +1,160 @@
-# Android Car Host MVP
+# Android Upper Computer for Robot Car
 
-这个目录是给无人工厂巡检小车准备的安卓上位机骨架，目标不是复刻桌面 `Qt_Car`，而是先落一版适合手机使用的移动控制台：
+无人工厂巡检小车的 Android 上位机应用，通过 TCP 直连 ESP32/ESP8266，实时接收遥测数据、发送控制命令。
 
-- `总览`：状态、电量、延迟、当前工位、报警摘要
-- `监控`：温度曲线、气体浓度、电池、速度、避障距离
-- `控制`：连接管理、返航、急停、暂停、手动复位
-- `历史`：报警/事件/指令记录
-- `设置`：动态取色、常亮、通知开关、连接参数
-- `RFID / 防撞 / 返航`：已经接入假数据状态流，可直接替换为真实报文
+## 功能概览
 
-## 为什么这里没有先上 Retrofit
+### 总览
+- 实时显示车辆状态、连接链路、电池余量、环境温湿度
+- RFID 路线映射（A1 → A2 → B2 → B3 → …）
+- 防撞状态、红外目标温度、MQ8 气体浓度
+- 自动告警等级判定（预警 / 告警 / 紧急撤离）
 
-任务书和现有 Qt 上位机都明确指向 `ESP8266 + TCP 协议 + JSON 行消息`。这类“手机直接连车”的场景更适合先做原生 TCP 通道，而不是强行套 REST API。
+### 监控
+- **内置图表**：温度、气体、电池、速度、MLX 红外、AHT 温湿度、MQ8、循迹通道
+- **自定义图表**：输入任意 JSON 字段路径即可绘图，支持编辑/删除/隐藏
+- **循迹二值图**：四路循迹通道（L1/L2/R1/R2）时间序列可视化
+- **RFID 流程图**：水平滚动的位置节点流，当前位置高亮
+- Y 轴固定、自动滚动到最新数据、坐标轴箭头
 
-所以这版骨架采取了两层设计：
+### 控制
+- 6 个默认快捷按钮：开始巡检、待机任务、紧急撤离、温度预警、温度警告、返航回桩
+- 自定义快捷按钮：添加 / 编辑 / 删除 / 恢复默认
+- 长按编辑按钮名称和发送字段
+- 自定义 JSON 发送（设置页）
 
-- `VehicleRepository`：对上暴露统一状态流和控制命令
-- `FakeVehicleRepository`：先用本地仿真把 UI、状态流和历史记录跑起来
+### 历史
+- 事件/报警/命令日志，Room 数据库持久化
+- 支持清除历史
 
-后面接真实硬件时，你只需要新增一个真实的 `TcpVehicleRepository` 或 `VehicleSocketDataSource`，把当前 Qt 的字段映射接进去即可。
+### 设置
+- 动态取色（Android 12+ Material You）
+- 巡检页常亮
+- 报警通知开关（POST_NOTIFICATIONS 权限请求）
+- JSON 数据查看器（最近接收 RX / 发送 TX）
+- 自定义 JSON 发送
 
-## 与当前 Qt 上位机对齐的关键点
+## 通信协议
 
-- 默认主机和端口沿用了 Qt 版本：`192.168.4.1:8899`
-- 命令字保持一致：
-  - `start_patrol`
-  - `pause`
-  - `evacuate`
-  - `emergency_stop`
-  - `manual_reset`
-  - `return_home`
-- 遥测字段也按 Qt 现有模型收敛：
-  - `state`
-  - `position`
-  - `temperature`
-  - `gas`
-  - `battery`
-  - `speed`
-  - `latencyMs`
-- 为任务书扩展的安卓端状态位：
-  - `rfidTag`
-  - `locationDescription`
-  - `obstacleDistanceCm`
-  - `obstacleDetected`
-  - `returnReason`
-  - `homeDockReached`
+TCP 连接，JSON 行消息格式，默认地址 `192.168.4.1:8080`。
 
-## 下一步怎么接真实小车
+### 接收（小车 → 上位机）
 
-1. 先确认 STM32/ESP8266 当前上报 JSON 的实际格式。
-2. 把 `FakeVehicleRepository` 替换成真实 TCP 数据源。
-3. 在连接层补上断线重连、心跳和 ACK 超时。
-4. 如果你们后面加云端中转，再补 Retrofit/OkHttp 的 REST 网关层。
+```json
+{
+  "type": "telemetry",
+  "MQ8": 120,
+  "AHT_temp": 28.5,
+  "AHT_hum": 65.2,
+  "MLX_obj": 45.0,
+  "MLX_amb": 26.3,
+  "dist": 50,
+  "bat": 85,
+  "rfid": 3,
+  "rfid_loc": "A2",
+  "track": 6,
+  "track_bin": "0110",
+  "state": "patrol"
+}
+```
 
-## 统一胶囊灰色 UI 风格
-
-所有 5 个页面统一使用 Material 3 Card 无显式背景色的胶囊式卡片布局，适配深色模式的蓝灰色调：
-
-- **总览**：每个 `MetricRow` 独立灰色卡片展示状态指标 + `RouteStripCard` 路线映射卡片
-- **监控**：页面 header、自定义/内置图表标题区均包裹在灰色卡片中，图表区域不再有内框黑子
-- **控制**：连接配置、快速控制两大区块各为独立灰色卡片
-- **历史**：页面 header、日志条目均为灰色卡片包裹
-- **设置**：每个 toggle 独立灰色卡片 + JSON 数据格式 + 架构说明卡片
-
-### 关键修改
-
-| 文件 | 改动 |
+| 字段 | 说明 |
 |------|------|
-| `CarHostApp.kt` | 移除所有 `surfaceContainerLow` 显式颜色，统一为 `Card { }`（4 个 header 包裹 + MetricRow / GrayChartCard / RouteStripCard / 空状态 / 日志条目） |
-| `LineChartCard.kt` | 移除内层 Card 显式背景色；轴线色从 `outlineVariant` 改为 `outline` 提升深色模式对比度 |
-| `RfidFlowCard.kt` | 移除 `surfaceContainerLow` 显色，统配灰色卡片 |
-| `TrackBinaryCard.kt` | 同上 |
+| `type` | `telemetry` / `alert` / `rfid` / `ack` |
+| `MQ8` | MQ8 气体传感器原始值 |
+| `AHT_temp` | AHT20 温度 (°C) |
+| `AHT_hum` | AHT20 湿度 (%) |
+| `MLX_obj` | MLX90614 红外目标温度 (°C) |
+| `MLX_amb` | MLX90614 环境温度 (°C) |
+| `dist` | 超声波避障距离 (cm) |
+| `bat` | 电池电量 (0-100) |
+| `rfid` | RFID 标签编号 |
+| `rfid_loc` | RFID 位置名称 |
+| `track` | 循迹值 (0-15) |
+| `track_bin` | 循迹二值字符串 (如 "0110") |
+| `state` | 车辆状态 |
 
-## 当前限制
+### 发送（上位机 → 小车）
 
-- 这个工作区里没有 Android SDK / Gradle Wrapper，所以我先把源码和构建脚本补齐了，但没有在本机完成 APK 构建验证。
-- 图片加载和推送通知还没接真实能力，先预留了结构位。
+| 命令 | wire 值 | 说明 |
+|------|---------|------|
+| 开始巡检 | `start_patrol` | 进入巡检模式 |
+| 待机任务 | `idle` | 待机状态 |
+| 紧急撤离 | `evacuate` | 紧急撤离 |
+| 温度预警 | `temp_warning` | 触发温度预警 |
+| 温度警告 | `temp_alarm` | 触发温度警告 |
+| 返航回桩 | `return_home` | 返回充电桩 |
+
+## 技术栈
+
+| 组件 | 技术 |
+|------|------|
+| UI | Jetpack Compose + Material 3 |
+| 架构 | MVVM + MVI (Sealed Intent) |
+| DI | Hilt |
+| 数据库 | Room (日志持久化) |
+| 偏好存储 | DataStore Preferences |
+| 异步 | Kotlin Coroutines + Flow |
+| 通信 | 原生 TCP Socket |
+| 图表 | Canvas 自绘折线图 |
+| 通知 | Android NotificationManager |
+
+## 项目结构
+
+```
+app/src/main/java/com/carhost/mobile/
+├── CarHostApplication.kt          # Hilt Application
+├── MainActivity.kt                # 入口 Activity，权限请求
+├── data/
+│   ├── local/
+│   │   ├── PreferencesRepository.kt  # DataStore 偏好读写
+│   │   └── db/
+│   │       ├── AppDatabase.kt        # Room 数据库
+│   │       ├── LogRecordDao.kt       # 日志 DAO
+│   │       └── LogRecordEntity.kt    # 日志实体
+│   ├── model/
+│   │   └── Models.kt                 # 数据模型、枚举、状态
+│   ├── notify/
+│   │   └── AlertNotifier.kt          # 通知管理
+│   └── repository/
+│       ├── VehicleRepository.kt      # Repository 接口
+│       ├── TcpVehicleRepository.kt   # TCP 真实实现
+│       └── FakeVehicleRepository.kt  # 仿真数据（调试用）
+├── di/
+│   └── AppModule.kt                  # Hilt 模块
+└── ui/
+    ├── CarHostApp.kt                 # 全部页面 Composable
+    ├── MainIntent.kt                 # MVI Intent 定义
+    ├── MainUiState.kt                # UI 状态定义
+    ├── MainViewModel.kt              # ViewModel 状态管理
+    ├── components/
+    │   ├── LineChartCard.kt          # Canvas 折线图
+    │   ├── RfidFlowCard.kt           # RFID 位置流程图
+    │   └── TrackBinaryCard.kt        # 循迹二值图
+    └── theme/
+        └── Theme.kt                  # Material 3 主题
+```
+
+## 告警等级
+
+| 等级 | 触发条件 |
+|------|----------|
+| 预警 | MLX ≥ 60°C 或 MQ8 ≥ 45% |
+| 告警 | MLX ≥ 70°C 或 MQ8 ≥ 65% |
+| 紧急 | MLX > 80°C 或 MQ8 ≥ 80% |
+
+告警状态下自动进入撤离模式，温度恢复正常 5 秒后自动返回巡检。
+
+## 构建
+
+```bash
+./gradlew assembleDebug
+```
+
+- minSdk 29 (Android 10)
+- targetSdk 36
+- Kotlin + Compose Compiler
+
+## UI 风格
+
+统一 Material 3 深色主题，所有页面使用 `surfaceContainerLow` 灰色胶囊卡片，适配深色模式蓝灰色调。
