@@ -81,7 +81,7 @@ data class QuickButtonDef(
 )
 
 enum class ColorTheme(val label: String) {
-    Default("默认"),
+    Default("黑白紫"),
     RedYellowPink("红黄粉"),
     YellowGreenGray("黄绿灰"),
     BlueGreenGray("蓝绿灰"),
@@ -93,7 +93,7 @@ data class OperatorPreferences(
     val useDynamicColor: Boolean = true,
     val keepScreenOn: Boolean = true,
     val notificationsEnabled: Boolean = false,
-    val colorTheme: ColorTheme = ColorTheme.Default,
+    val colorTheme: ColorTheme = ColorTheme.BlackWhiteGray,
     val contrastLevel: Float = 0.2f,
     val customCharts: List<CustomChartDef> = emptyList(),
     val customCommands: List<CustomCommandDef> = emptyList(),

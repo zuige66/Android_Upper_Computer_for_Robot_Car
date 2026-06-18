@@ -266,7 +266,7 @@ private fun readableOn(color: Color): Color {
 fun CarHostTheme(
     useDarkTheme: Boolean = isSystemInDarkTheme(),
     useDynamicColor: Boolean,
-    colorTheme: ColorTheme = ColorTheme.Default,
+    colorTheme: ColorTheme = ColorTheme.BlackWhiteGray,
     contrastLevel: Float = 0.2f,
     content: @Composable () -> Unit,
 ) {
