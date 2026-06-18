@@ -29,6 +29,7 @@ data class BuiltInChartState(
 data class OverviewItemState(
     val id: String,
     val customTitle: String? = null,
+    val customFieldPath: String? = null,
     val deleted: Boolean = false,
 )
 

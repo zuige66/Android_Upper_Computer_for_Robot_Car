@@ -94,7 +94,7 @@ data class OperatorPreferences(
     val keepScreenOn: Boolean = true,
     val notificationsEnabled: Boolean = false,
     val colorTheme: ColorTheme = ColorTheme.Default,
-    val contrastLevel: Float = 0.5f,
+    val contrastLevel: Float = 0.2f,
     val customCharts: List<CustomChartDef> = emptyList(),
     val customCommands: List<CustomCommandDef> = emptyList(),
     val quickButtons: List<QuickButtonDef> = emptyList(),

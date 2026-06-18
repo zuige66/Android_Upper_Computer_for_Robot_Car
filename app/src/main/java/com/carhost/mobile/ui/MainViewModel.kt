@@ -192,7 +192,7 @@ class MainViewModel @Inject constructor(
             is MainIntent.DeleteBuiltInChart -> deleteBuiltInChart(intent.chartId)
             MainIntent.RestoreDefaultCharts -> restoreDefaultCharts()
             is MainIntent.DeleteOverviewItem -> deleteOverviewItem(intent.itemId)
-            is MainIntent.EditOverviewItemTitle -> editOverviewItemTitle(intent.itemId, intent.newTitle)
+            is MainIntent.EditOverviewItem -> editOverviewItem(intent.itemId, intent.newTitle, intent.fieldPath)
             MainIntent.RestoreDefaultOverview -> restoreDefaultOverview()
             MainIntent.ResetOverviewData -> resetOverviewData()
         }
@@ -360,9 +360,12 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    private fun editOverviewItemTitle(itemId: String, newTitle: String) {
+    private fun editOverviewItem(itemId: String, newTitle: String, fieldPath: String) {
         overviewItemStates.update { current ->
-            current + (itemId to (current[itemId] ?: OverviewItemState(itemId)).copy(customTitle = newTitle))
+            current + (itemId to (current[itemId] ?: OverviewItemState(itemId)).copy(
+                customTitle = newTitle.ifBlank { null },
+                customFieldPath = fieldPath.ifBlank { null },
+            ))
         }
     }
 
@@ -445,6 +448,7 @@ class MainViewModel @Inject constructor(
             BuiltInChartDef("aht_hum", "AHT20湿度", "AHT20 温湿度传感器相对湿度", "AHT_hum"),
             BuiltInChartDef("mq8", "MQ8氢气", "MQ8 氢气传感器 ADC 原始值", "MQ8"),
             BuiltInChartDef("track", "四路循迹状态", "四路循迹传感器二进制状态热力图", "track_bin"),
+            BuiltInChartDef("rfid_flow", "RFID 位置流程", "RFID 点位识别流程", "rfid"),
         )
     }
 }

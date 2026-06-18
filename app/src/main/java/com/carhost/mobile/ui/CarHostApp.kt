@@ -13,8 +13,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -59,15 +57,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -98,7 +99,6 @@ import com.carhost.mobile.data.model.CommandEmphasis
 import com.carhost.mobile.data.model.CustomChartDef
 import com.carhost.mobile.data.model.CustomChartType
 import com.carhost.mobile.data.model.CustomCommandDef
-import com.carhost.mobile.data.model.QuickButtonDef
 import com.carhost.mobile.ui.BuiltInChartDef
 import com.carhost.mobile.ui.BuiltInChartState
 import com.carhost.mobile.data.model.LinkState
@@ -167,18 +167,12 @@ private fun CarHostScaffold(
                         LinkState.Offline -> "离线"
                     }
                     val linkColor = when (uiState.telemetry.linkState) {
-                        LinkState.Online,
-                        LinkState.Connected -> MaterialTheme.colorScheme.primaryContainer
-                        LinkState.Connecting -> MaterialTheme.colorScheme.tertiaryContainer
                         LinkState.Fault -> MaterialTheme.colorScheme.errorContainer
-                        LinkState.Offline -> MaterialTheme.colorScheme.surfaceVariant
+                        else -> MaterialTheme.colorScheme.secondaryContainer
                     }
                     val linkTextColor = when (uiState.telemetry.linkState) {
-                        LinkState.Online,
-                        LinkState.Connected -> MaterialTheme.colorScheme.onPrimaryContainer
-                        LinkState.Connecting -> MaterialTheme.colorScheme.onTertiaryContainer
                         LinkState.Fault -> MaterialTheme.colorScheme.onErrorContainer
-                        LinkState.Offline -> MaterialTheme.colorScheme.onSurfaceVariant
+                        else -> MaterialTheme.colorScheme.onSecondaryContainer
                     }
                     Box(
                         modifier = Modifier
@@ -209,6 +203,13 @@ private fun CarHostScaffold(
                     NavigationBarItem(
                         selected = uiState.selectedTab == item.tab,
                         onClick = { onIntent(MainIntent.SelectTab(item.tab)) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                            indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
                         icon = {
                             Icon(
                                 imageVector = item.icon,
@@ -246,6 +247,7 @@ private fun OverviewScreen(
     var showEditDialog by remember { mutableStateOf(false) }
     var editingItemId by remember { mutableStateOf("") }
     var editingTitle by remember { mutableStateOf("") }
+    var editingFieldPath by remember { mutableStateOf("") }
 
     val overviewItems = listOf(
         "vehicle_state" to Triple("车辆状态", uiState.telemetry.vehicleState.label, "当前工位 ${uiState.telemetry.positionLabel} · ${uiState.telemetry.locationDescription}"),
@@ -294,15 +296,15 @@ private fun OverviewScreen(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(18.dp))
-                            .background(MaterialTheme.colorScheme.errorContainer)
+                            .background(MaterialTheme.colorScheme.primaryContainer)
                             .clickable { onIntent(MainIntent.ResetOverviewData) }
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
+                            Icon(Icons.Outlined.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("清除", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+                            Text("清除", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                         }
                     }
                 }
@@ -324,6 +326,7 @@ private fun OverviewScreen(
                             onEdit = {
                                 editingItemId = itemId
                                 editingTitle = displayTitle
+                                editingFieldPath = state?.customFieldPath ?: defaultOverviewFieldPath(itemId)
                                 showEditDialog = true
                             },
                             onDelete = { onIntent(MainIntent.DeleteOverviewItem(itemId)) },
@@ -334,7 +337,7 @@ private fun OverviewScreen(
         }
 
         item {
-            RouteStripCard(uiState = uiState)
+            FullOverviewCard(uiState = uiState)
         }
     }
 
@@ -352,7 +355,7 @@ private fun OverviewScreen(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    onIntent(MainIntent.EditOverviewItemTitle(editingItemId, editingTitle))
+                    onIntent(MainIntent.EditOverviewItem(editingItemId, editingTitle, editingFieldPath))
                     showEditDialog = false
                 }) { Text("保存") }
             },
@@ -441,15 +444,15 @@ private fun MonitorScreen(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(18.dp))
-                            .background(MaterialTheme.colorScheme.errorContainer)
+                            .background(MaterialTheme.colorScheme.primaryContainer)
                             .clickable { onIntent(MainIntent.ClearMonitorData) }
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
+                            Icon(Icons.Outlined.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("清除", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+                            Text("清除", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                         }
                     }
                     Box(
@@ -546,6 +549,10 @@ private fun MonitorScreen(
                             currentBinary = uiState.telemetry.trackBinary,
                             values = uiState.telemetry.trackHistory,
                         )
+                        "rfid_flow" -> RfidFlowCard(
+                            currentLabel = uiState.telemetry.positionLabel,
+                            locations = uiState.telemetry.rfidHistory,
+                        )
                     }
                 }
                 GrayChartCard(
@@ -585,15 +592,6 @@ private fun MonitorScreen(
                     }
                 }
             }
-        }
-
-        // RFID flow chart
-        item {
-            RfidFlowCard(
-                title = "RFID 位置流程",
-                currentLabel = uiState.telemetry.positionLabel,
-                locations = uiState.telemetry.rfidHistory,
-            )
         }
 
         // Metric rows
@@ -724,7 +722,7 @@ private fun MonitorScreen(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ControlScreen(
     uiState: MainUiState,
@@ -732,49 +730,27 @@ private fun ControlScreen(
 ) {
     var showEditDialog by remember { mutableStateOf(false) }
     var editingCommandId by remember { mutableStateOf("") }
-    var editingIsDefault by remember { mutableStateOf(true) }
     var editLabel by remember { mutableStateOf("") }
     var editWireValue by remember { mutableStateOf("") }
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-
-    var showAddDialog by remember { mutableStateOf(false) }
-    var addLabel by remember { mutableStateOf("") }
-    var addWireValue by remember { mutableStateOf("") }
 
     fun openEditDefault(command: VehicleCommand) {
         editingCommandId = command.name
-        editingIsDefault = true
         val custom = uiState.customCommands.find { it.commandId == command.name }
         editLabel = custom?.customLabel?.ifBlank { null } ?: command.label
         editWireValue = custom?.customWireValue?.ifBlank { null } ?: command.wireValue
         showEditDialog = true
     }
 
-    fun openEditCustom(btn: QuickButtonDef) {
-        editingCommandId = btn.id
-        editingIsDefault = false
-        editLabel = btn.label
-        editWireValue = btn.wireValue
-        showEditDialog = true
+    val defaultButtons = uiState.availableCommands.map { cmd ->
+        val custom = uiState.customCommands.find { it.commandId == cmd.name }
+        Triple(
+            custom?.customLabel?.ifBlank { null } ?: cmd.label,
+            cmd.emphasis,
+            cmd.name,
+        )
     }
-
-    // All buttons: default 6 + custom quick buttons
-    val allButtons = buildList {
-        uiState.availableCommands.forEach { cmd ->
-            val custom = uiState.customCommands.find { it.commandId == cmd.name }
-            add(Triple(
-                custom?.customLabel?.ifBlank { null } ?: cmd.label,
-                cmd.emphasis,
-                cmd.name,
-            ))
-        }
-        uiState.quickButtons.forEach { btn ->
-            add(Triple(btn.label, CommandEmphasis.Neutral, "quick_${btn.id}"))
-        }
-    }
-
-    // Chunk into rows of 2
-    val rows = allButtons.chunked(2)
+    val defaultRows = defaultButtons.chunked(2)
+    var quickSendText by remember { mutableStateOf("") }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -843,17 +819,8 @@ private fun ControlScreen(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
-                        Row {
-                            IconButton(onClick = {
-                                addLabel = ""
-                                addWireValue = ""
-                                showAddDialog = true
-                            }) {
-                                Icon(Icons.Outlined.Add, contentDescription = "添加按钮")
-                            }
-                            IconButton(onClick = { onIntent(MainIntent.RestoreDefaultCommands) }) {
-                                Icon(Icons.Outlined.Refresh, contentDescription = "恢复默认")
-                            }
+                        IconButton(onClick = { onIntent(MainIntent.RestoreDefaultCommands) }) {
+                            Icon(Icons.Outlined.Refresh, contentDescription = "恢复默认")
                         }
                     }
 
@@ -864,36 +831,23 @@ private fun ControlScreen(
                     )
 
                     // 2-column grid
-                    rows.forEach { row ->
+                    defaultRows.forEach { row ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             row.forEach { (label, emphasis, id) ->
-                                val isDefault = !id.startsWith("quick_")
                                 Box(modifier = Modifier.weight(1f)) {
                                     CommandChip(
                                         label = label,
                                         emphasis = emphasis,
                                         onClick = {
-                                            if (isDefault) {
-                                                val cmd = uiState.availableCommands.find { it.name == id }
-                                                if (cmd != null) onIntent(MainIntent.SendCommand(cmd))
-                                            } else {
-                                                val btnId = id.removePrefix("quick_")
-                                                val btn = uiState.quickButtons.find { it.id == btnId }
-                                                if (btn != null) onIntent(MainIntent.SendRawCommand(btn.wireValue))
-                                            }
+                                            val cmd = uiState.availableCommands.find { it.name == id }
+                                            if (cmd != null) onIntent(MainIntent.SendCommand(cmd))
                                         },
                                         onLongClick = {
-                                            if (isDefault) {
-                                                val cmd = uiState.availableCommands.find { it.name == id }
-                                                if (cmd != null) openEditDefault(cmd)
-                                            } else {
-                                                val btnId = id.removePrefix("quick_")
-                                                val btn = uiState.quickButtons.find { it.id == btnId }
-                                                if (btn != null) openEditCustom(btn)
-                                            }
+                                            val cmd = uiState.availableCommands.find { it.name == id }
+                                            if (cmd != null) openEditDefault(cmd)
                                         },
                                     )
                                 }
@@ -902,6 +856,35 @@ private fun ControlScreen(
                             if (row.size == 1) {
                                 Spacer(modifier = Modifier.weight(1f))
                             }
+                        }
+                    }
+
+                    Text(
+                        text = "快捷发送",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        OutlinedTextField(
+                            value = quickSendText,
+                            onValueChange = { quickSendText = it },
+                            label = { Text("输入要发送的内容") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                        )
+                        Button(
+                            onClick = {
+                                if (quickSendText.isNotBlank()) {
+                                    onIntent(MainIntent.SendRawCommand(quickSendText.trim()))
+                                }
+                            },
+                            enabled = quickSendText.isNotBlank(),
+                        ) {
+                            Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "发送", modifier = Modifier.size(18.dp))
                         }
                     }
                 }
@@ -930,49 +913,27 @@ private fun ControlScreen(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                     )
-                    if (editingIsDefault) {
-                        val cmd = uiState.availableCommands.find { it.name == editingCommandId }
-                        if (cmd != null) {
-                            Text(
-                                text = "默认: ${cmd.label} / ${cmd.wireValue}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                    val cmd = uiState.availableCommands.find { it.name == editingCommandId }
+                    if (cmd != null) {
+                        Text(
+                            text = "默认: ${cmd.label} / ${cmd.wireValue}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             },
             confirmButton = {
-                Row {
-                    if (!editingIsDefault) {
-                        TextButton(onClick = {
-                            showDeleteConfirm = true
-                        }) {
-                            Text("删除", color = MaterialTheme.colorScheme.error)
-                        }
-                        Spacer(modifier = Modifier.size(8.dp))
-                    }
-                    TextButton(onClick = {
-                        if (editingIsDefault) {
-                            onIntent(MainIntent.UpdateCustomCommand(
-                                CustomCommandDef(
-                                    commandId = editingCommandId,
-                                    customLabel = editLabel.trim(),
-                                    customWireValue = editWireValue.trim(),
-                                )
-                            ))
-                        } else {
-                            onIntent(MainIntent.UpdateQuickButton(
-                                QuickButtonDef(
-                                    id = editingCommandId,
-                                    label = editLabel.trim(),
-                                    wireValue = editWireValue.trim(),
-                                )
-                            ))
-                        }
-                        showEditDialog = false
-                    }) { Text("保存") }
-                }
+                TextButton(onClick = {
+                    onIntent(MainIntent.UpdateCustomCommand(
+                        CustomCommandDef(
+                            commandId = editingCommandId,
+                            customLabel = editLabel.trim(),
+                            customWireValue = editWireValue.trim(),
+                        )
+                    ))
+                    showEditDialog = false
+                }) { Text("保存") }
             },
             dismissButton = {
                 TextButton(onClick = { showEditDialog = false }) { Text("取消") }
@@ -980,63 +941,6 @@ private fun ControlScreen(
         )
     }
 
-    // Delete confirmation dialog
-    if (showDeleteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("确认删除") },
-            text = { Text("确定要删除这个自定义按钮吗？") },
-            confirmButton = {
-                TextButton(onClick = {
-                    onIntent(MainIntent.DeleteQuickButton(editingCommandId))
-                    showDeleteConfirm = false
-                    showEditDialog = false
-                }) { Text("删除", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("取消") }
-            },
-        )
-    }
-
-    // Add button dialog
-    if (showAddDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddDialog = false },
-            title = { Text("添加快捷按钮") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
-                        value = addLabel,
-                        onValueChange = { addLabel = it },
-                        label = { Text("按钮名称") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-                    OutlinedTextField(
-                        value = addWireValue,
-                        onValueChange = { addWireValue = it },
-                        label = { Text("发送字段") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (addLabel.isNotBlank() && addWireValue.isNotBlank()) {
-                        onIntent(MainIntent.AddQuickButton(
-                            QuickButtonDef(label = addLabel.trim(), wireValue = addWireValue.trim())
-                        ))
-                        showAddDialog = false
-                    }
-                }) { Text("添加") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) { Text("取消") }
-            },
-        )
-    }
 }
 
 @Composable
@@ -1075,10 +979,6 @@ private fun HistoryScreen(
                     Button(
                         onClick = { onIntent(MainIntent.ClearHistory) },
                         enabled = uiState.logs.isNotEmpty(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                        ),
                     ) {
                         Text("清除所有数据")
                     }
@@ -1142,6 +1042,19 @@ private fun SettingsScreen(
     onIntent: (MainIntent) -> Unit,
 ) {
     var customSendText by remember { mutableStateOf("") }
+    var defaultEditTitle by remember { mutableStateOf("") }
+    var defaultEditName by remember { mutableStateOf("") }
+    var defaultEditJson by remember { mutableStateOf("") }
+    var defaultEditKind by remember { mutableStateOf("") }
+    var defaultEditId by remember { mutableStateOf("") }
+
+    fun openDefaultEdit(kind: String, id: String, title: String, name: String, json: String) {
+        defaultEditKind = kind
+        defaultEditId = id
+        defaultEditTitle = title
+        defaultEditName = name
+        defaultEditJson = json
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -1276,6 +1189,16 @@ private fun SettingsScreen(
             }
         }
 
+
+        item {
+            DefaultSettingsCard(
+                uiState = uiState,
+                onEditOverview = { id, name, json -> openDefaultEdit("overview", id, "??????", name, json) },
+                onEditChart = { id, name, json -> openDefaultEdit("chart", id, "??????", name, json) },
+                onEditCommand = { id, name, json -> openDefaultEdit("command", id, "????????", name, json) },
+            )
+        }
+
         item {
             Card {
                 Column(
@@ -1305,6 +1228,134 @@ private fun SettingsScreen(
                 }
             }
         }
+    }
+
+    if (defaultEditKind.isNotBlank()) {
+        AlertDialog(
+            onDismissRequest = { defaultEditKind = "" },
+            title = { Text(defaultEditTitle) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = defaultEditName,
+                        onValueChange = { defaultEditName = it },
+                        label = { Text("??") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = defaultEditJson,
+                        onValueChange = { defaultEditJson = it },
+                        label = { Text("???? JSON") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    when (defaultEditKind) {
+                        "overview" -> onIntent(MainIntent.EditOverviewItem(defaultEditId, defaultEditName.trim(), defaultEditJson.trim()))
+                        "chart" -> onIntent(MainIntent.UpdateBuiltInChart(defaultEditId, defaultEditName.trim(), defaultEditJson.trim()))
+                        "command" -> onIntent(MainIntent.UpdateCustomCommand(CustomCommandDef(defaultEditId, defaultEditName.trim(), defaultEditJson.trim())))
+                    }
+                    defaultEditKind = ""
+                }) { Text("??") }
+            },
+            dismissButton = {
+                TextButton(onClick = { defaultEditKind = "" }) { Text("??") }
+            },
+        )
+    }
+}
+
+@Composable
+private fun DefaultSettingsCard(
+    uiState: MainUiState,
+    onEditOverview: (String, String, String) -> Unit,
+    onEditChart: (String, String, String) -> Unit,
+    onEditCommand: (String, String, String) -> Unit,
+) {
+    val overviewDefaults = listOf(
+        "vehicle_state" to "车辆状态",
+        "link_state" to "连接链路",
+        "rfid_tag" to "RFID 点位",
+        "battery" to "电池余量",
+        "environment" to "环境概况",
+        "obstacle" to "防撞状态",
+    )
+
+    Card {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = "默认设置",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = "点进默认项可修改名称和对应 JSON 数据字段",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Text("总览默认", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            overviewDefaults.forEach { (id, fallbackName) ->
+                val state = uiState.overviewItemStates[id]
+                val name = state?.customTitle ?: fallbackName
+                val json = state?.customFieldPath ?: defaultOverviewFieldPath(id)
+                DefaultSettingRow(name = name, json = json, onClick = { onEditOverview(id, name, json) })
+            }
+
+            Text("监控图表默认", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            uiState.builtInCharts.forEach { chart ->
+                DefaultSettingRow(
+                    name = chart.defaultName,
+                    json = chart.defaultFieldPath,
+                    onClick = { onEditChart(chart.id, chart.defaultName, chart.defaultFieldPath) },
+                )
+            }
+
+            Text("快速控制六按钮默认", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            uiState.availableCommands.forEach { command ->
+                val custom = uiState.customCommands.find { it.commandId == command.name }
+                val name = custom?.customLabel?.ifBlank { null } ?: command.label
+                val json = custom?.customWireValue?.ifBlank { null } ?: command.wireValue
+                DefaultSettingRow(name = name, json = json, onClick = { onEditCommand(command.name, name, json) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun DefaultSettingRow(
+    name: String,
+    json: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                text = json,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Icon(Icons.Outlined.Edit, contentDescription = "编辑", modifier = Modifier.size(18.dp))
     }
 }
 
@@ -1385,7 +1436,7 @@ private fun ColorThemeSection(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
-                        text = "对比度",
+                        text = "鲜艳度",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1400,6 +1451,11 @@ private fun ColorThemeSection(
                     onValueChange = onContrastChanged,
                     valueRange = 0f..1f,
                     modifier = Modifier.fillMaxWidth(),
+                    colors = SliderDefaults.colors(
+                        thumbColor = MaterialTheme.colorScheme.secondaryContainer,
+                        activeTrackColor = MaterialTheme.colorScheme.secondaryContainer,
+                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    ),
                 )
             }
         }
@@ -1436,15 +1492,37 @@ private fun AlertBanner(uiState: MainUiState) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+private fun defaultOverviewFieldPath(itemId: String): String = when (itemId) {
+    "vehicle_state" -> "vehicle_state"
+    "link_state" -> "link_state"
+    "rfid_tag" -> "rfid"
+    "battery" -> "battery"
+    "environment" -> "MLX_obj / MQ8"
+    "obstacle" -> "obstacle_distance"
+    else -> itemId
+}
+
 @Composable
-private fun RouteStripCard(uiState: MainUiState) {
-    val routeNodes = listOf(
-        "START" to "起点",
-        "A1" to "A1",
-        "A2" to "A2",
-        "B2" to "B2",
-        "B3" to "B3",
+private fun FullOverviewCard(uiState: MainUiState) {
+    val data = listOf(
+        "车辆状态" to uiState.telemetry.vehicleState.label,
+        "连接链路" to uiState.telemetry.linkState.label,
+        "当前点位" to uiState.telemetry.positionLabel,
+        "RFID 标签" to "${uiState.telemetry.rfidTag} · ${uiState.telemetry.locationDescription}",
+        "电池余量" to "${uiState.telemetry.batteryPercent}%",
+        "车速" to "%.2f m/s".format(uiState.telemetry.speedMetersPerSecond),
+        "环境温度" to "%.1f°C".format(uiState.telemetry.temperatureC),
+        "红外目标温度" to "%.1f°C".format(uiState.telemetry.mlxObjectTemperatureC),
+        "红外环境温度" to "%.1f°C".format(uiState.telemetry.mlxAmbientTemperatureC),
+        "AHT 温度" to "%.1f°C".format(uiState.telemetry.ahtTemperatureC),
+        "AHT 湿度" to "%.1f%%".format(uiState.telemetry.ahtHumidityPercent),
+        "MQ8 气体" to "%.0f / %.0f%%".format(uiState.telemetry.mq8Raw, uiState.telemetry.gasPercent * 100f),
+        "巡迹状态" to "${uiState.telemetry.trackBinary} (${uiState.telemetry.trackValue})",
+        "避障测距" to "${uiState.telemetry.obstacleDistanceCm} cm",
+        "防撞状态" to if (uiState.telemetry.obstacleDetected) "已触发" else "安全",
+        "返航原因" to uiState.telemetry.returnReason.label,
+        "归位状态" to if (uiState.telemetry.homeDockReached) "已到位" else "未到位",
+        "延迟" to if (uiState.telemetry.latencyMs > 0) "${uiState.telemetry.latencyMs} ms" else "--",
     )
 
     Card {
@@ -1452,35 +1530,50 @@ private fun RouteStripCard(uiState: MainUiState) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Text(
-                text = "RFID 路线映射",
+                text = "全览指标",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                routeNodes.forEach { (code, label) ->
-                    val active = uiState.telemetry.positionLabel == code
-                    AssistChip(
-                        onClick = { },
-                        label = { Text("$label · $code") },
-                        colors = androidx.compose.material3.AssistChipDefaults.assistChipColors(
-                            containerColor = if (active) {
-                                MaterialTheme.colorScheme.primaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.surfaceVariant
-                            },
-                            labelColor = if (active) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                        ),
-                    )
+            Text(
+                text = "包含车辆状态、传感器数据和 RFID 位置信息",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                data.chunked(2).forEach { row ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        row.forEach { (label, value) ->
+                            Card(
+                                modifier = Modifier.weight(1f),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Text(
+                                        text = value,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        }
+                        if (row.size == 1) Spacer(modifier = Modifier.weight(1f))
+                    }
                 }
             }
         }
@@ -1578,7 +1671,7 @@ private fun CommandChip(
     val containerColor = when (emphasis) {
         CommandEmphasis.Primary -> MaterialTheme.colorScheme.primaryContainer
         CommandEmphasis.Accent -> MaterialTheme.colorScheme.tertiaryContainer
-        CommandEmphasis.Danger -> MaterialTheme.colorScheme.errorContainer
+        CommandEmphasis.Danger -> MaterialTheme.colorScheme.primaryContainer
         CommandEmphasis.Neutral -> MaterialTheme.colorScheme.surfaceVariant
     }
 
@@ -1642,6 +1735,12 @@ private fun SettingToggle(
                 Switch(
                     checked = checked,
                     onCheckedChange = onCheckedChange,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        checkedTrackColor = MaterialTheme.colorScheme.secondaryContainer,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    ),
                 )
             }
         }

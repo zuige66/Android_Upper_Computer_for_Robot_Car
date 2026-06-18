@@ -14,8 +14,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,7 +29,6 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun RfidFlowCard(
-    title: String,
     currentLabel: String,
     locations: List<String>,
     modifier: Modifier = Modifier,
@@ -44,95 +41,74 @@ fun RfidFlowCard(
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val displayLocations = locations.filter { it.isNotBlank() && it.lowercase() != "unknown" }
 
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    Column(
+        modifier = modifier
+            .fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Column(
+        if (displayLocations.isEmpty()) {
+            Text(
+                text = "暂无 RFID 记录",
+                modifier = Modifier.fillMaxWidth().padding(vertical = 18.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = labelColor,
+                textAlign = TextAlign.Center,
+            )
+            return@Column
+        }
+
+        Text(
+            text = "共 ${displayLocations.size} 个位置 · 当前: $currentLabel",
+            style = MaterialTheme.typography.bodySmall,
+            color = labelColor,
+        )
+
+        val scrollState = rememberScrollState()
+        LaunchedEffect(displayLocations.size) {
+            scrollState.animateScrollTo(scrollState.maxValue)
+        }
+
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .horizontalScroll(scrollState),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = labelColor,
-                )
-                Text(
-                    text = currentLabel,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
+            displayLocations.forEachIndexed { index, location ->
+                val isCurrent = location == currentLabel
+                Box(
+                    modifier = Modifier
+                        .width(90.dp)
+                        .height(48.dp)
+                        .background(
+                            color = if (isCurrent) activeColor else inactiveColor,
+                            shape = RoundedCornerShape(10.dp),
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = location,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isCurrent) activeTextColor else inactiveTextColor,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(horizontal = 6.dp),
+                    )
+                }
 
-            if (displayLocations.isEmpty()) {
-                Text(
-                    text = "等待 RFID 位置数据",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = labelColor,
-                )
-                return@Column
-            }
-
-            Text(
-                text = "共 ${displayLocations.size} 个位置节点",
-                style = MaterialTheme.typography.bodySmall,
-                color = labelColor,
-            )
-
-            val scrollState = rememberScrollState()
-            LaunchedEffect(displayLocations.size) {
-                scrollState.animateScrollTo(scrollState.maxValue)
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(scrollState),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                displayLocations.forEachIndexed { index, location ->
-                    val isCurrent = location == currentLabel
-                    Box(
+                if (index < displayLocations.lastIndex) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = arrowColor,
                         modifier = Modifier
-                            .width(90.dp)
-                            .height(48.dp)
-                            .background(
-                                color = if (isCurrent) activeColor else inactiveColor,
-                                shape = RoundedCornerShape(10.dp),
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = location,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isCurrent) activeTextColor else inactiveTextColor,
-                            textAlign = TextAlign.Center,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            fontSize = 11.sp,
-                            modifier = Modifier.padding(horizontal = 6.dp),
-                        )
-                    }
-
-                    if (index < displayLocations.lastIndex) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = null,
-                            tint = arrowColor,
-                            modifier = Modifier
-                                .width(20.dp)
-                                .height(16.dp),
-                        )
-                    }
+                            .width(20.dp)
+                            .height(16.dp),
+                    )
                 }
             }
         }
