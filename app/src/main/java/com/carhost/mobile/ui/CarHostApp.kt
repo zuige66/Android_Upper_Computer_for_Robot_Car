@@ -1193,9 +1193,9 @@ private fun SettingsScreen(
         item {
             DefaultSettingsCard(
                 uiState = uiState,
-                onEditOverview = { id, name, json -> openDefaultEdit("overview", id, "??????", name, json) },
-                onEditChart = { id, name, json -> openDefaultEdit("chart", id, "??????", name, json) },
-                onEditCommand = { id, name, json -> openDefaultEdit("command", id, "????????", name, json) },
+                onEditOverview = { id, name, json -> openDefaultEdit("overview", id, "编辑默认总览", name, json) },
+                onEditChart = { id, name, json -> openDefaultEdit("chart", id, "编辑默认图表", name, json) },
+                onEditCommand = { id, name, json -> openDefaultEdit("command", id, "编辑默认命令", name, json) },
             )
         }
 
@@ -1239,14 +1239,14 @@ private fun SettingsScreen(
                     OutlinedTextField(
                         value = defaultEditName,
                         onValueChange = { defaultEditName = it },
-                        label = { Text("??") },
+                        label = { Text("名称") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                     )
                     OutlinedTextField(
                         value = defaultEditJson,
                         onValueChange = { defaultEditJson = it },
-                        label = { Text("???? JSON") },
+                        label = { Text("字段路径 JSON") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                     )
@@ -1260,10 +1260,10 @@ private fun SettingsScreen(
                         "command" -> onIntent(MainIntent.UpdateCustomCommand(CustomCommandDef(defaultEditId, defaultEditName.trim(), defaultEditJson.trim())))
                     }
                     defaultEditKind = ""
-                }) { Text("??") }
+                }) { Text("保存") }
             },
             dismissButton = {
-                TextButton(onClick = { defaultEditKind = "" }) { Text("??") }
+                TextButton(onClick = { defaultEditKind = "" }) { Text("取消") }
             },
         )
     }
