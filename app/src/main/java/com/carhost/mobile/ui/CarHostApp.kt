@@ -160,7 +160,7 @@ private fun CarHostScaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text("Host Computer")
+                    Text("Bot Host")
                 },
                 actions = {
                     val linkText = when (uiState.telemetry.linkState) {
