@@ -178,7 +178,7 @@ val themeSwatches = mapOf(
 // —— Vibrancy (saturation) adjustment ————————————————————
 
 private fun applyVibrancy(scheme: ColorScheme, vibrancy: Float): ColorScheme {
-    val factor = (vibrancy / 0.2f).coerceIn(0f, 5f)
+    val factor = (0.35f + vibrancy * 2.25f).coerceIn(0.35f, 2.6f)
     fun adj(color: Color): Color {
         val hsv = FloatArray(3)
         android.graphics.Color.RGBToHSV(
@@ -188,6 +188,9 @@ private fun applyVibrancy(scheme: ColorScheme, vibrancy: Float): ColorScheme {
             hsv,
         )
         hsv[1] = (hsv[1] * factor).coerceIn(0f, 1f)
+        if (hsv[1] < 0.02f) {
+            hsv[2] = (hsv[2] * (0.6f + vibrancy * 0.8f)).coerceIn(0f, 1f)
+        }
         val rgb = android.graphics.Color.HSVToColor((color.alpha * 255).toInt(), hsv)
         return Color(rgb)
     }
@@ -213,9 +216,9 @@ private fun themeColorScheme(
     darkTheme: Boolean,
 ): ColorScheme {
     val swatch = themeSwatches[theme] ?: themeSwatches.getValue(ColorTheme.Default)
-    val appChrome = swatch.surface
-    val pageBackground = darken(swatch.surface, 0.22f)
-    val cardSurface = swatch.primary
+    val appChrome = darken(swatch.surface, 0.02f)
+    val pageBackground = darken(swatch.surface, 0.34f)
+    val cardSurface = lerpColor(pageBackground, swatch.primary, 0.74f)
     val brightCapsule = swatch.tertiary
     val darkCapsule = darken(swatch.tertiary, 0.42f)
     val onDark = Color(0xFFF7F0E6)
@@ -247,6 +250,16 @@ private fun themeColorScheme(
         onTertiaryContainer = onDark,
         onSecondary = onBrightCapsule,
         onSecondaryContainer = onBrightCapsule,
+    )
+}
+
+private fun lerpColor(a: Color, b: Color, fraction: Float): Color {
+    val f = fraction.coerceIn(0f, 1f)
+    return Color(
+        red = a.red + (b.red - a.red) * f,
+        green = a.green + (b.green - a.green) * f,
+        blue = a.blue + (b.blue - a.blue) * f,
+        alpha = a.alpha + (b.alpha - a.alpha) * f,
     )
 }
 

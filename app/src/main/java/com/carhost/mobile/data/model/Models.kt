@@ -81,11 +81,11 @@ data class QuickButtonDef(
 )
 
 enum class ColorTheme(val label: String) {
+    BlackWhiteGray("默认"),
     Default("黑白紫"),
     RedYellowPink("红黄粉"),
     YellowGreenGray("黄绿灰"),
     BlueGreenGray("蓝绿灰"),
-    BlackWhiteGray("黑白灰"),
 }
 
 data class OperatorPreferences(

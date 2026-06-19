@@ -21,6 +21,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import org.json.JSONObject
@@ -52,7 +53,7 @@ class PreferencesRepository @Inject constructor(
                 keepScreenOn = prefs[Keys.KeepScreenOn] ?: true,
                 notificationsEnabled = prefs[Keys.Notifications] ?: false,
                 colorTheme = try { ColorTheme.valueOf(prefs[Keys.ColorTheme] ?: "Default") } catch (_: Exception) { ColorTheme.Default },
-                contrastLevel = prefs[Keys.ContrastLevel] ?: 0.5f,
+                contrastLevel = prefs[Keys.ContrastLevel] ?: 0.2f,
                 customCharts = parseCustomCharts(prefs[Keys.CustomCharts] ?: "[]"),
                 customCommands = parseCustomCommands(prefs[Keys.CustomCommands] ?: "[]"),
                 quickButtons = parseQuickButtons(prefs[Keys.QuickButtons] ?: "[]"),
@@ -124,6 +125,30 @@ class PreferencesRepository @Inject constructor(
         dataStore.edit { prefs -> prefs[Keys.QuickButtons] = jsonArray.toString() }
     }
 
+    suspend fun saveCustomizedOverviewDefaults(json: String) {
+        dataStore.edit { prefs -> prefs[Keys.CustomizedOverviewDefaults] = json }
+    }
+
+    suspend fun getCustomizedOverviewDefaults(): String {
+        return dataStore.data.first()[Keys.CustomizedOverviewDefaults] ?: ""
+    }
+
+    suspend fun saveCustomizedChartDefaults(json: String) {
+        dataStore.edit { prefs -> prefs[Keys.CustomizedChartDefaults] = json }
+    }
+
+    suspend fun getCustomizedChartDefaults(): String {
+        return dataStore.data.first()[Keys.CustomizedChartDefaults] ?: ""
+    }
+
+    suspend fun saveCustomizedCommandDefaults(json: String) {
+        dataStore.edit { prefs -> prefs[Keys.CustomizedCommandDefaults] = json }
+    }
+
+    suspend fun getCustomizedCommandDefaults(): String {
+        return dataStore.data.first()[Keys.CustomizedCommandDefaults] ?: ""
+    }
+
     private fun parseCustomCharts(json: String): List<CustomChartDef> {
         return try {
             val array = JSONArray(json)
@@ -185,5 +210,8 @@ class PreferencesRepository @Inject constructor(
         val CustomCharts = stringPreferencesKey("custom_charts")
         val CustomCommands = stringPreferencesKey("custom_commands")
         val QuickButtons = stringPreferencesKey("quick_buttons")
+        val CustomizedOverviewDefaults = stringPreferencesKey("customized_overview_defaults")
+        val CustomizedChartDefaults = stringPreferencesKey("customized_chart_defaults")
+        val CustomizedCommandDefaults = stringPreferencesKey("customized_command_defaults")
     }
 }

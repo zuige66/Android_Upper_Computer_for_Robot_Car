@@ -25,17 +25,17 @@ sealed interface MainIntent {
     data class DeleteCustomChart(val chartId: String) : MainIntent
     data class UpdateCustomChart(val chart: CustomChartDef) : MainIntent
     data class SendRawCommand(val raw: String) : MainIntent
-    data class UpdateCustomCommand(val command: CustomCommandDef) : MainIntent
-    data class AddQuickButton(val button: QuickButtonDef) : MainIntent
-    data class DeleteQuickButton(val buttonId: String) : MainIntent
-    data class UpdateQuickButton(val button: QuickButtonDef) : MainIntent
+    data class UpdateCustomCommand(val command: CustomCommandDef, val saveAsDefault: Boolean = false) : MainIntent
+    data class AddQuickButton(val button: QuickButtonDef, val saveAsDefault: Boolean = false) : MainIntent
+    data class DeleteQuickButton(val buttonId: String, val saveAsDefault: Boolean = false) : MainIntent
+    data class UpdateQuickButton(val button: QuickButtonDef, val saveAsDefault: Boolean = false) : MainIntent
     data object RestoreDefaultCommands : MainIntent
     data class ToggleBuiltInChartVisible(val chartId: String) : MainIntent
-    data class UpdateBuiltInChart(val chartId: String, val name: String, val fieldPath: String) : MainIntent
-    data class DeleteBuiltInChart(val chartId: String) : MainIntent
+    data class UpdateBuiltInChart(val chartId: String, val name: String, val fieldPath: String, val saveAsDefault: Boolean = false) : MainIntent
+    data class DeleteBuiltInChart(val chartId: String, val saveAsDefault: Boolean = false) : MainIntent
     data object RestoreDefaultCharts : MainIntent
-    data class DeleteOverviewItem(val itemId: String) : MainIntent
-    data class EditOverviewItem(val itemId: String, val newTitle: String, val fieldPath: String) : MainIntent
+    data class DeleteOverviewItem(val itemId: String, val saveAsDefault: Boolean = false) : MainIntent
+    data class EditOverviewItem(val itemId: String, val newTitle: String, val fieldPath: String, val saveAsDefault: Boolean = false) : MainIntent
     data object RestoreDefaultOverview : MainIntent
     data object ResetOverviewData : MainIntent
 }

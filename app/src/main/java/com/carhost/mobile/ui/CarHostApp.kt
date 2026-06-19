@@ -1,4 +1,4 @@
-package com.carhost.mobile.ui
+﻿package com.carhost.mobile.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -48,6 +48,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.shape.CircleShape
@@ -81,6 +82,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -97,6 +100,7 @@ import com.carhost.mobile.data.model.ColorTheme
 import com.carhost.mobile.data.model.ChartPoint
 import com.carhost.mobile.data.model.CommandEmphasis
 import com.carhost.mobile.data.model.CustomChartDef
+import com.carhost.mobile.data.model.QuickButtonDef
 import com.carhost.mobile.data.model.CustomChartType
 import com.carhost.mobile.data.model.CustomCommandDef
 import com.carhost.mobile.ui.BuiltInChartDef
@@ -228,12 +232,16 @@ private fun CarHostScaffold(
                 .padding(innerPadding),
             color = MaterialTheme.colorScheme.background,
         ) {
-            when (uiState.selectedTab) {
-                AppTab.Overview -> OverviewScreen(uiState = uiState, onIntent = onIntent)
-                AppTab.Monitor -> MonitorScreen(uiState = uiState, onIntent = onIntent)
-                AppTab.Control -> ControlScreen(uiState = uiState, onIntent = onIntent)
-                AppTab.History -> HistoryScreen(uiState = uiState, onIntent = onIntent)
-                AppTab.Settings -> SettingsScreen(uiState = uiState, onIntent = onIntent)
+            CompositionLocalProvider(
+                androidx.compose.material3.LocalContentColor provides MaterialTheme.colorScheme.onSurface,
+            ) {
+                when (uiState.selectedTab) {
+                    AppTab.Overview -> OverviewScreen(uiState = uiState, onIntent = onIntent)
+                    AppTab.Monitor -> MonitorScreen(uiState = uiState, onIntent = onIntent)
+                    AppTab.Control -> ControlScreen(uiState = uiState, onIntent = onIntent)
+                    AppTab.History -> HistoryScreen(uiState = uiState, onIntent = onIntent)
+                    AppTab.Settings -> SettingsScreen(uiState = uiState, onIntent = onIntent)
+                }
             }
         }
     }
@@ -271,7 +279,7 @@ private fun OverviewScreen(
 
         // Action bar: restore + clear (capsule style)
         item {
-            Card {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(14.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -281,34 +289,47 @@ private fun OverviewScreen(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(18.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
                             .clickable { onIntent(MainIntent.RestoreDefaultOverview) }
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("恢复", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text("恢复", style = MaterialTheme.typography.labelMedium, color = Color.White)
                         }
                     }
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(18.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
                             .clickable { onIntent(MainIntent.ResetOverviewData) }
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Icon(Icons.Outlined.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("清除", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text("清除", style = MaterialTheme.typography.labelMedium, color = Color.White)
                         }
                     }
                 }
             }
+        }
+
+        item {
+            FullOverviewCard(
+                uiState = uiState,
+                onItemClick = { itemId, title, fieldPath ->
+                    editingItemId = itemId
+                    editingTitle = title
+                    editingFieldPath = fieldPath
+                    showEditDialog = true
+                },
+                onItemDelete = { onIntent(MainIntent.DeleteOverviewItem(it)) },
+            )
         }
 
         // Overview metric items
@@ -333,11 +354,25 @@ private fun OverviewScreen(
                         )
                     }
                 }
+                val hardcodedIds = overviewItems.map { it.first }.toSet()
+                uiState.overviewItemStates.forEach { (itemId, state) ->
+                    if (itemId !in hardcodedIds && !state.deleted) {
+                        val displayTitle = state.customTitle ?: itemId
+                        EditableMetricRow(
+                            title = displayTitle,
+                            value = "自定义",
+                            supporting = "自定义项",
+                            onEdit = {
+                                editingItemId = itemId
+                                editingTitle = displayTitle
+                                editingFieldPath = state.customFieldPath ?: itemId
+                                showEditDialog = true
+                            },
+                            onDelete = { onIntent(MainIntent.DeleteOverviewItem(itemId)) },
+                        )
+                    }
+                }
             }
-        }
-
-        item {
-            FullOverviewCard(uiState = uiState)
         }
     }
 
@@ -354,13 +389,19 @@ private fun OverviewScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
-                    onIntent(MainIntent.EditOverviewItem(editingItemId, editingTitle, editingFieldPath))
-                    showEditDialog = false
-                }) { Text("保存") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = {
+                        onIntent(MainIntent.DeleteOverviewItem(editingItemId))
+                        showEditDialog = false
+                    }) { Text("删除", color = Color.White, fontWeight = FontWeight.Bold) }
+                    TextButton(onClick = {
+                        onIntent(MainIntent.EditOverviewItem(editingItemId, editingTitle, editingFieldPath))
+                        showEditDialog = false
+                    }) { Text("保存", color = Color.White, fontWeight = FontWeight.Bold) }
+                }
             },
             dismissButton = {
-                TextButton(onClick = { showEditDialog = false }) { Text("取消") }
+                TextButton(onClick = { showEditDialog = false }) { Text("取消", color = Color.White.copy(alpha = 0.7f)) }
             },
         )
     }
@@ -419,7 +460,7 @@ private fun MonitorScreen(
     ) {
         // Unified action bar: restore + clear + add (capsule style)
         item {
-            Card {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(14.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -429,45 +470,45 @@ private fun MonitorScreen(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(18.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
                             .clickable { onIntent(MainIntent.RestoreDefaultCharts) }
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("恢复", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text("恢复", style = MaterialTheme.typography.labelMedium, color = Color.White)
                         }
                     }
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(18.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
                             .clickable { onIntent(MainIntent.ClearMonitorData) }
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Icon(Icons.Outlined.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("清除", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text("清除", style = MaterialTheme.typography.labelMedium, color = Color.White)
                         }
                     }
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(18.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
                             .clickable { openAddCustomDialog() }
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("自定义", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text("自定义", style = MaterialTheme.typography.labelMedium, color = Color.White)
                         }
                     }
                 }
@@ -673,10 +714,10 @@ private fun MonitorScreen(
                         else onIntent(MainIntent.UpdateCustomChart(chart))
                         showCustomDialog = false
                     }
-                }) { Text("保存") }
+                }) { Text("保存", color = Color.White, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
-                TextButton(onClick = { showCustomDialog = false }) { Text("取消") }
+                TextButton(onClick = { showCustomDialog = false }) { Text("取消", color = Color.White.copy(alpha = 0.7f)) }
             },
         )
     }
@@ -710,13 +751,19 @@ private fun MonitorScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    onIntent(MainIntent.UpdateBuiltInChart(editingBuiltInId, builtInName.trim(), builtInFieldPath.trim()))
-                    showBuiltInDialog = false
-                }) { Text("保存") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = {
+                        onIntent(MainIntent.DeleteBuiltInChart(editingBuiltInId))
+                        showBuiltInDialog = false
+                    }) { Text("删除", color = Color.White, fontWeight = FontWeight.Bold) }
+                    TextButton(onClick = {
+                        onIntent(MainIntent.UpdateBuiltInChart(editingBuiltInId, builtInName.trim(), builtInFieldPath.trim()))
+                        showBuiltInDialog = false
+                    }) { Text("保存", color = Color.White, fontWeight = FontWeight.Bold) }
+                }
             },
             dismissButton = {
-                TextButton(onClick = { showBuiltInDialog = false }) { Text("取消") }
+                TextButton(onClick = { showBuiltInDialog = false }) { Text("取消", color = Color.White.copy(alpha = 0.7f)) }
             },
         )
     }
@@ -749,7 +796,13 @@ private fun ControlScreen(
             cmd.name,
         )
     }
-    val defaultRows = defaultButtons.chunked(2)
+    // Add quick buttons added via "+"
+    val customCommandNames = uiState.availableCommands.map { it.name }.toSet()
+    val quickButtonItems = uiState.quickButtons
+        .filter { it.id !in customCommandNames }
+        .map { btn -> Triple(btn.label, CommandEmphasis.Neutral, btn.id) }
+    val allButtons = defaultButtons + quickButtonItems
+    val defaultRows = allButtons.chunked(2)
     var quickSendText by remember { mutableStateOf("") }
 
     LazyColumn(
@@ -758,7 +811,7 @@ private fun ControlScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            Card {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -789,12 +842,26 @@ private fun ControlScreen(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        OutlinedButton(onClick = { onIntent(MainIntent.SaveEndpoint) }) {
-                            Text("保存参数")
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(18.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
+                                .clickable { onIntent(MainIntent.SaveEndpoint) }
+                                .padding(horizontal = 24.dp, vertical = 10.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("保存参数", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Color.White)
                         }
                         Spacer(modifier = Modifier.size(12.dp))
-                        Button(onClick = { onIntent(MainIntent.ToggleConnection) }) {
-                            Text(if (uiState.connectionActive) "断开连接" else "开始连接")
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(18.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
+                                .clickable { onIntent(MainIntent.ToggleConnection) }
+                                .padding(horizontal = 24.dp, vertical = 10.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(if (uiState.connectionActive) "断开连接" else "开始连接", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Color.White)
                         }
                     }
                 }
@@ -802,7 +869,7 @@ private fun ControlScreen(
         }
 
         item {
-            Card {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -843,11 +910,30 @@ private fun ControlScreen(
                                         emphasis = emphasis,
                                         onClick = {
                                             val cmd = uiState.availableCommands.find { it.name == id }
-                                            if (cmd != null) onIntent(MainIntent.SendCommand(cmd))
+                                            if (cmd != null) {
+                                                onIntent(MainIntent.SendCommand(cmd))
+                                            } else {
+                                                // Quick button - send wireValue as raw command
+                                                val quickBtn = uiState.quickButtons.find { it.id == id }
+                                                if (quickBtn != null) {
+                                                    onIntent(MainIntent.SendRawCommand(quickBtn.wireValue))
+                                                }
+                                            }
                                         },
                                         onLongClick = {
                                             val cmd = uiState.availableCommands.find { it.name == id }
-                                            if (cmd != null) openEditDefault(cmd)
+                                            if (cmd != null) {
+                                                openEditDefault(cmd)
+                                            } else {
+                                                // Quick button - open edit dialog
+                                                val quickBtn = uiState.quickButtons.find { it.id == id }
+                                                if (quickBtn != null) {
+                                                    editingCommandId = quickBtn.id
+                                                    editLabel = quickBtn.label
+                                                    editWireValue = quickBtn.wireValue
+                                                    showEditDialog = true
+                                                }
+                                            }
                                         },
                                     )
                                 }
@@ -876,15 +962,18 @@ private fun ControlScreen(
                             modifier = Modifier.weight(1f),
                             singleLine = true,
                         )
-                        Button(
-                            onClick = {
-                                if (quickSendText.isNotBlank()) {
+                        val sendEnabled = quickSendText.isNotBlank()
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(18.dp))
+                                .border(1.dp, if (sendEnabled) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(18.dp))
+                                .clickable(enabled = sendEnabled) {
                                     onIntent(MainIntent.SendRawCommand(quickSendText.trim()))
                                 }
-                            },
-                            enabled = quickSendText.isNotBlank(),
+                                .padding(horizontal = 20.dp, vertical = 10.dp),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "发送", modifier = Modifier.size(18.dp))
+                            Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "发送", modifier = Modifier.size(18.dp), tint = if (sendEnabled) Color.White else Color.White.copy(alpha = 0.38f))
                         }
                     }
                 }
@@ -924,19 +1013,47 @@ private fun ControlScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    onIntent(MainIntent.UpdateCustomCommand(
-                        CustomCommandDef(
-                            commandId = editingCommandId,
-                            customLabel = editLabel.trim(),
-                            customWireValue = editWireValue.trim(),
-                        )
-                    ))
-                    showEditDialog = false
-                }) { Text("保存") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = {
+                        val isQuickButton = uiState.quickButtons.any { it.id == editingCommandId }
+                        if (isQuickButton) {
+                            onIntent(MainIntent.DeleteQuickButton(editingCommandId))
+                        } else {
+                            onIntent(MainIntent.UpdateCustomCommand(
+                                CustomCommandDef(
+                                    commandId = editingCommandId,
+                                    customLabel = "",
+                                    customWireValue = "",
+                                )
+                            ))
+                        }
+                        showEditDialog = false
+                    }) { Text("删除", color = Color.White, fontWeight = FontWeight.Bold) }
+                    TextButton(onClick = {
+                        val isQuickButton = uiState.quickButtons.any { it.id == editingCommandId }
+                        if (isQuickButton) {
+                            onIntent(MainIntent.UpdateQuickButton(
+                                QuickButtonDef(
+                                    id = editingCommandId,
+                                    label = editLabel.trim(),
+                                    wireValue = editWireValue.trim(),
+                                )
+                            ))
+                        } else {
+                            onIntent(MainIntent.UpdateCustomCommand(
+                                CustomCommandDef(
+                                    commandId = editingCommandId,
+                                    customLabel = editLabel.trim(),
+                                    customWireValue = editWireValue.trim(),
+                                )
+                            ))
+                        }
+                        showEditDialog = false
+                    }) { Text("保存", color = Color.White, fontWeight = FontWeight.Bold) }
+                }
             },
             dismissButton = {
-                TextButton(onClick = { showEditDialog = false }) { Text("取消") }
+                TextButton(onClick = { showEditDialog = false }) { Text("取消", color = Color.White.copy(alpha = 0.7f)) }
             },
         )
     }
@@ -954,7 +1071,7 @@ private fun HistoryScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            Card {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(18.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -976,11 +1093,16 @@ private fun HistoryScreen(
                         )
                     }
                     Spacer(modifier = Modifier.size(12.dp))
-                    Button(
-                        onClick = { onIntent(MainIntent.ClearHistory) },
-                        enabled = uiState.logs.isNotEmpty(),
+                    val clearEnabled = uiState.logs.isNotEmpty()
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(18.dp))
+                            .border(1.dp, if (clearEnabled) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(18.dp))
+                            .clickable(enabled = clearEnabled) { onIntent(MainIntent.ClearHistory) }
+                            .padding(horizontal = 24.dp, vertical = 10.dp),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Text("清除所有数据")
+                        Text("清除所有数据", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = if (clearEnabled) Color.White else Color.White.copy(alpha = 0.38f))
                     }
                 }
             }
@@ -988,7 +1110,7 @@ private fun HistoryScreen(
 
         if (uiState.logs.isEmpty()) {
             item {
-                Card {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                     Text(
                         text = "暂无历史数据",
                         modifier = Modifier
@@ -1002,7 +1124,7 @@ private fun HistoryScreen(
         }
 
         items(uiState.logs, key = { it.id }) { entry ->
-            Card {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1090,15 +1212,15 @@ private fun SettingsScreen(
         item {
             ColorThemeSection(
                 currentTheme = uiState.preferences.colorTheme,
-                contrastLevel = uiState.preferences.contrastLevel,
+                vibrancyLevel = uiState.preferences.contrastLevel,
                 onThemeSelected = { onIntent(MainIntent.SetColorTheme(it)) },
-                onContrastChanged = { onIntent(MainIntent.SetContrastLevel(it)) },
+                onVibrancyChanged = { onIntent(MainIntent.SetContrastLevel(it)) },
             )
         }
 
         // JSON viewer section
         item {
-            Card {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1174,15 +1296,18 @@ private fun SettingsScreen(
                             modifier = Modifier.weight(1f),
                             singleLine = true,
                         )
-                        Button(
-                            onClick = {
-                                if (customSendText.isNotBlank()) {
+                        val customSendEnabled = customSendText.isNotBlank()
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(18.dp))
+                                .border(1.dp, if (customSendEnabled) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(18.dp))
+                                .clickable(enabled = customSendEnabled) {
                                     onIntent(MainIntent.SendRawCommand(customSendText.trim()))
                                 }
-                            },
-                            enabled = customSendText.isNotBlank(),
+                                .padding(horizontal = 20.dp, vertical = 10.dp),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "发送", modifier = Modifier.size(18.dp))
+                            Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "发送", modifier = Modifier.size(18.dp), tint = if (customSendEnabled) Color.White else Color.White.copy(alpha = 0.38f))
                         }
                     }
                 }
@@ -1196,11 +1321,31 @@ private fun SettingsScreen(
                 onEditOverview = { id, name, json -> openDefaultEdit("overview", id, "编辑默认总览", name, json) },
                 onEditChart = { id, name, json -> openDefaultEdit("chart", id, "编辑默认图表", name, json) },
                 onEditCommand = { id, name, json -> openDefaultEdit("command", id, "编辑默认命令", name, json) },
+                onDeleteOverview = { onIntent(MainIntent.DeleteOverviewItem(it, saveAsDefault = true)) },
+                onDeleteChart = { chartId ->
+                    val isBuiltIn = uiState.builtInCharts.any { it.id == chartId }
+                    if (isBuiltIn) {
+                        onIntent(MainIntent.DeleteBuiltInChart(chartId, saveAsDefault = true))
+                    } else {
+                        onIntent(MainIntent.DeleteCustomChart(chartId))
+                    }
+                },
+                onDeleteCommand = { commandId ->
+                    val isQuickButton = uiState.quickButtons.any { it.id == commandId }
+                    if (isQuickButton) {
+                        onIntent(MainIntent.DeleteQuickButton(commandId, saveAsDefault = true))
+                    } else {
+                        onIntent(MainIntent.UpdateCustomCommand(CustomCommandDef(commandId, "", ""), saveAsDefault = true))
+                    }
+                },
+                onAddOverview = { openDefaultEdit("overview", "", "添加默认总览项", "", "") },
+                onAddChart = { openDefaultEdit("chart", "", "添加默认图表", "", "") },
+                onAddCommand = { openDefaultEdit("command", "", "添加默认按钮", "", "") },
             )
         }
 
         item {
-            Card {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(
                     modifier = Modifier.padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -1253,17 +1398,70 @@ private fun SettingsScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    when (defaultEditKind) {
-                        "overview" -> onIntent(MainIntent.EditOverviewItem(defaultEditId, defaultEditName.trim(), defaultEditJson.trim()))
-                        "chart" -> onIntent(MainIntent.UpdateBuiltInChart(defaultEditId, defaultEditName.trim(), defaultEditJson.trim()))
-                        "command" -> onIntent(MainIntent.UpdateCustomCommand(CustomCommandDef(defaultEditId, defaultEditName.trim(), defaultEditJson.trim())))
-                    }
-                    defaultEditKind = ""
-                }) { Text("保存") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = {
+                        if (defaultEditId.isNotEmpty()) {
+                            when (defaultEditKind) {
+                                "overview" -> onIntent(MainIntent.DeleteOverviewItem(defaultEditId, saveAsDefault = true))
+                                "chart" -> {
+                                    val isBuiltIn = uiState.builtInCharts.any { it.id == defaultEditId }
+                                    if (isBuiltIn) {
+                                        onIntent(MainIntent.DeleteBuiltInChart(defaultEditId, saveAsDefault = true))
+                                    } else {
+                                        onIntent(MainIntent.DeleteCustomChart(defaultEditId))
+                                    }
+                                }
+                                "command" -> {
+                                    val isQuickButton = uiState.quickButtons.any { it.id == defaultEditId }
+                                    if (isQuickButton) {
+                                        onIntent(MainIntent.DeleteQuickButton(defaultEditId, saveAsDefault = true))
+                                    } else {
+                                        onIntent(MainIntent.UpdateCustomCommand(CustomCommandDef(defaultEditId, "", ""), saveAsDefault = true))
+                                    }
+                                }
+                            }
+                        }
+                        defaultEditKind = ""
+                    }) { Text("删除", color = Color.White, fontWeight = FontWeight.Bold) }
+                    TextButton(onClick = {
+                        val trimmedName = defaultEditName.trim()
+                        val trimmedJson = defaultEditJson.trim()
+                        if (defaultEditId.isEmpty() && trimmedName.isNotBlank()) {
+                            when (defaultEditKind) {
+                                "overview" -> {
+                                    val newId = java.util.UUID.randomUUID().toString()
+                                    onIntent(MainIntent.EditOverviewItem(newId, trimmedName, trimmedJson, saveAsDefault = true))
+                                }
+                                "chart" -> onIntent(MainIntent.AddCustomChart(CustomChartDef(name = trimmedName, fieldPath = trimmedJson)))
+                                "command" -> onIntent(MainIntent.AddQuickButton(QuickButtonDef(label = trimmedName, wireValue = trimmedJson), saveAsDefault = true))
+                            }
+                        } else {
+                            when (defaultEditKind) {
+                                "overview" -> onIntent(MainIntent.EditOverviewItem(defaultEditId, trimmedName, trimmedJson, saveAsDefault = true))
+                                "chart" -> {
+                                    val isBuiltIn = uiState.builtInCharts.any { it.id == defaultEditId }
+                                    if (isBuiltIn) {
+                                        onIntent(MainIntent.UpdateBuiltInChart(defaultEditId, trimmedName, trimmedJson, saveAsDefault = true))
+                                    } else {
+                                        onIntent(MainIntent.UpdateCustomChart(CustomChartDef(id = defaultEditId, name = trimmedName, fieldPath = trimmedJson)))
+                                    }
+                                }
+                                "command" -> {
+                                    val isQuickButton = uiState.quickButtons.any { it.id == defaultEditId }
+                                    if (isQuickButton) {
+                                        onIntent(MainIntent.UpdateQuickButton(QuickButtonDef(id = defaultEditId, label = trimmedName, wireValue = trimmedJson), saveAsDefault = true))
+                                    } else {
+                                        onIntent(MainIntent.UpdateCustomCommand(CustomCommandDef(defaultEditId, trimmedName, trimmedJson), saveAsDefault = true))
+                                    }
+                                }
+                            }
+                        }
+                        defaultEditKind = ""
+                    }) { Text("保存", color = Color.White, fontWeight = FontWeight.Bold) }
+                }
             },
             dismissButton = {
-                TextButton(onClick = { defaultEditKind = "" }) { Text("取消") }
+                TextButton(onClick = { defaultEditKind = "" }) { Text("取消", color = Color.White.copy(alpha = 0.7f)) }
             },
         )
     }
@@ -1275,6 +1473,12 @@ private fun DefaultSettingsCard(
     onEditOverview: (String, String, String) -> Unit,
     onEditChart: (String, String, String) -> Unit,
     onEditCommand: (String, String, String) -> Unit,
+    onDeleteOverview: ((String) -> Unit)? = null,
+    onDeleteChart: ((String) -> Unit)? = null,
+    onDeleteCommand: ((String) -> Unit)? = null,
+    onAddOverview: () -> Unit = {},
+    onAddChart: () -> Unit = {},
+    onAddCommand: () -> Unit = {},
 ) {
     val overviewDefaults = listOf(
         "vehicle_state" to "车辆状态",
@@ -1285,7 +1489,7 @@ private fun DefaultSettingsCard(
         "obstacle" to "防撞状态",
     )
 
-    Card {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -1301,29 +1505,90 @@ private fun DefaultSettingsCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            Text("总览默认", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("总览默认", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                IconButton(onClick = onAddOverview) {
+                    Icon(Icons.Outlined.Add, contentDescription = "添加", modifier = Modifier.size(20.dp), tint = Color.White)
+                }
+            }
             overviewDefaults.forEach { (id, fallbackName) ->
                 val state = uiState.overviewItemStates[id]
                 val name = state?.customTitle ?: fallbackName
                 val json = state?.customFieldPath ?: defaultOverviewFieldPath(id)
-                DefaultSettingRow(name = name, json = json, onClick = { onEditOverview(id, name, json) })
+                DefaultSettingRow(name = name, json = json, onClick = { onEditOverview(id, name, json) }, onDelete = { onDeleteOverview?.invoke(id) })
+            }
+            // Show custom overview items added via "+"
+            val hardcodedOverviewIds = overviewDefaults.map { it.first }.toSet()
+            uiState.overviewItemStates.forEach { (itemId, state) ->
+                if (itemId !in hardcodedOverviewIds && !state.deleted) {
+                    val name = state.customTitle ?: itemId
+                    val json = state.customFieldPath ?: ""
+                    DefaultSettingRow(name = name, json = json, onClick = { onEditOverview(itemId, name, json) }, onDelete = { onDeleteOverview?.invoke(itemId) })
+                }
             }
 
-            Text("监控图表默认", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("监控图表默认", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                IconButton(onClick = onAddChart) {
+                    Icon(Icons.Outlined.Add, contentDescription = "添加", modifier = Modifier.size(20.dp), tint = Color.White)
+                }
+            }
             uiState.builtInCharts.forEach { chart ->
                 DefaultSettingRow(
                     name = chart.defaultName,
                     json = chart.defaultFieldPath,
                     onClick = { onEditChart(chart.id, chart.defaultName, chart.defaultFieldPath) },
+                    onDelete = { onDeleteChart?.invoke(chart.id) },
                 )
             }
+            // Show custom charts added via "+"
+            val builtInChartIds = uiState.builtInCharts.map { it.id }.toSet()
+            uiState.customCharts.forEach { chart ->
+                if (chart.id !in builtInChartIds) {
+                    DefaultSettingRow(
+                        name = chart.name,
+                        json = chart.fieldPath,
+                        onClick = { onEditChart(chart.id, chart.name, chart.fieldPath) },
+                        onDelete = { onDeleteChart?.invoke(chart.id) },
+                    )
+                }
+            }
 
-            Text("快速控制六按钮默认", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("快速控制按钮默认", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                IconButton(onClick = onAddCommand) {
+                    Icon(Icons.Outlined.Add, contentDescription = "添加", modifier = Modifier.size(20.dp), tint = Color.White)
+                }
+            }
             uiState.availableCommands.forEach { command ->
                 val custom = uiState.customCommands.find { it.commandId == command.name }
                 val name = custom?.customLabel?.ifBlank { null } ?: command.label
                 val json = custom?.customWireValue?.ifBlank { null } ?: command.wireValue
-                DefaultSettingRow(name = name, json = json, onClick = { onEditCommand(command.name, name, json) })
+                DefaultSettingRow(name = name, json = json, onClick = { onEditCommand(command.name, name, json) }, onDelete = { onDeleteCommand?.invoke(command.name) })
+            }
+            // Show quick buttons added via "+"
+            val commandNames = uiState.availableCommands.map { it.name }.toSet()
+            uiState.quickButtons.forEach { btn ->
+                if (btn.id !in commandNames) {
+                    DefaultSettingRow(
+                        name = btn.label,
+                        json = btn.wireValue,
+                        onClick = { onEditCommand(btn.id, btn.label, btn.wireValue) },
+                        onDelete = { onDeleteCommand?.invoke(btn.id) },
+                    )
+                }
             }
         }
     }
@@ -1334,6 +1599,7 @@ private fun DefaultSettingRow(
     name: String,
     json: String,
     onClick: () -> Unit,
+    onDelete: () -> Unit = {},
 ) {
     Row(
         modifier = Modifier
@@ -1355,18 +1621,24 @@ private fun DefaultSettingRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Icon(Icons.Outlined.Edit, contentDescription = "编辑", modifier = Modifier.size(18.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Outlined.Edit, contentDescription = "编辑", modifier = Modifier.size(18.dp), tint = Color.White)
+            Spacer(modifier = Modifier.width(12.dp))
+            IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Outlined.Delete, contentDescription = "删除", modifier = Modifier.size(18.dp), tint = Color.White)
+            }
+        }
     }
 }
 
 @Composable
 private fun ColorThemeSection(
     currentTheme: ColorTheme,
-    contrastLevel: Float,
+    vibrancyLevel: Float,
     onThemeSelected: (ColorTheme) -> Unit,
-    onContrastChanged: (Float) -> Unit,
+    onVibrancyChanged: (Float) -> Unit,
 ) {
-    Card {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -1396,26 +1668,51 @@ private fun ColorThemeSection(
             ) {
                 ColorTheme.entries.forEach { theme ->
                     val swatch = themeSwatches[theme] ?: return@forEach
+                    val gearColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.42f)
+                    val gearInnerColor = MaterialTheme.colorScheme.surfaceContainer
+                    val selectedRingColor = MaterialTheme.colorScheme.onSurface
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .then(
-                                    if (currentTheme == theme)
-                                        Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
-                                    else Modifier
-                                )
+                                .size(54.dp)
                                 .clickable { onThemeSelected(theme) },
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Canvas(modifier = Modifier.size(44.dp)) {
-                                val half = size.height / 2f
-                                drawArc(swatch.surface, 180f, 180f, true, Offset.Zero)
-                                drawArc(swatch.primary, 0f, 90f, true, Offset(0f, half))
-                                drawArc(swatch.tertiary, 90f, 90f, true, Offset(0f, half))
+                            Canvas(modifier = Modifier.size(54.dp)) {
+                                val center = Offset(size.width / 2f, size.height / 2f)
+                                val gearRadius = size.minDimension / 2f - 2f
+                                val toothOuter = gearRadius
+                                val toothInner = gearRadius - 4f
+                                val teeth = 18
+                                val gear = Path()
+                                for (i in 0 until teeth * 2) {
+                                    val angle = (-90f + i * 360f / (teeth * 2)) * kotlin.math.PI.toFloat() / 180f
+                                    val radius = if (i % 2 == 0) toothOuter else toothInner
+                                    val point = Offset(
+                                        center.x + kotlin.math.cos(angle) * radius,
+                                        center.y + kotlin.math.sin(angle) * radius,
+                                    )
+                                    if (i == 0) gear.moveTo(point.x, point.y) else gear.lineTo(point.x, point.y)
+                                }
+                                gear.close()
+                                drawPath(gear, gearColor)
+                                drawCircle(gearInnerColor, radius = toothInner - 2f, center = center)
+
+                                val inset = 9f
+                                val arcSize = Size(size.width - inset * 2f, size.height - inset * 2f)
+                                val arcTopLeft = Offset(inset, inset)
+                                drawArc(swatch.surface, -90f, 120f, true, arcTopLeft, arcSize)
+                                drawArc(swatch.primary, 30f, 120f, true, arcTopLeft, arcSize)
+                                drawArc(swatch.tertiary, 150f, 120f, true, arcTopLeft, arcSize)
+                                drawCircle(
+                                    color = if (currentTheme == theme) selectedRingColor else gearInnerColor,
+                                    radius = arcSize.width / 2f,
+                                    center = center,
+                                    style = Stroke(width = if (currentTheme == theme) 3.5f else 1.5f),
+                                )
                             }
                         }
                         Text(
@@ -1441,14 +1738,14 @@ private fun ColorThemeSection(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = "%.0f%%".format(contrastLevel * 100),
+                        text = "%.0f%%".format(vibrancyLevel * 100),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Slider(
-                    value = contrastLevel,
-                    onValueChange = onContrastChanged,
+                    value = vibrancyLevel,
+                    onValueChange = onVibrancyChanged,
                     valueRange = 0f..1f,
                     modifier = Modifier.fillMaxWidth(),
                     colors = SliderDefaults.colors(
@@ -1502,30 +1799,37 @@ private fun defaultOverviewFieldPath(itemId: String): String = when (itemId) {
     else -> itemId
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun FullOverviewCard(uiState: MainUiState) {
-    val data = listOf(
-        "车辆状态" to uiState.telemetry.vehicleState.label,
-        "连接链路" to uiState.telemetry.linkState.label,
-        "当前点位" to uiState.telemetry.positionLabel,
-        "RFID 标签" to "${uiState.telemetry.rfidTag} · ${uiState.telemetry.locationDescription}",
-        "电池余量" to "${uiState.telemetry.batteryPercent}%",
-        "车速" to "%.2f m/s".format(uiState.telemetry.speedMetersPerSecond),
-        "环境温度" to "%.1f°C".format(uiState.telemetry.temperatureC),
-        "红外目标温度" to "%.1f°C".format(uiState.telemetry.mlxObjectTemperatureC),
-        "红外环境温度" to "%.1f°C".format(uiState.telemetry.mlxAmbientTemperatureC),
-        "AHT 温度" to "%.1f°C".format(uiState.telemetry.ahtTemperatureC),
-        "AHT 湿度" to "%.1f%%".format(uiState.telemetry.ahtHumidityPercent),
-        "MQ8 气体" to "%.0f / %.0f%%".format(uiState.telemetry.mq8Raw, uiState.telemetry.gasPercent * 100f),
-        "巡迹状态" to "${uiState.telemetry.trackBinary} (${uiState.telemetry.trackValue})",
-        "避障测距" to "${uiState.telemetry.obstacleDistanceCm} cm",
-        "防撞状态" to if (uiState.telemetry.obstacleDetected) "已触发" else "安全",
-        "返航原因" to uiState.telemetry.returnReason.label,
-        "归位状态" to if (uiState.telemetry.homeDockReached) "已到位" else "未到位",
-        "延迟" to if (uiState.telemetry.latencyMs > 0) "${uiState.telemetry.latencyMs} ms" else "--",
+private fun FullOverviewCard(
+    uiState: MainUiState,
+    onItemClick: (itemId: String, title: String, fieldPath: String) -> Unit,
+    onItemDelete: (itemId: String) -> Unit,
+) {
+    data class FullItem(val id: String, val label: String, val value: String)
+
+    val items = listOf(
+        FullItem("full_vstate", "车辆状态", uiState.telemetry.vehicleState.label),
+        FullItem("full_link", "连接链路", uiState.telemetry.linkState.label),
+        FullItem("full_pos", "当前点位", uiState.telemetry.positionLabel),
+        FullItem("full_rfid", "RFID 标签", uiState.telemetry.rfidTag),
+        FullItem("full_bat", "电池余量", "${uiState.telemetry.batteryPercent}%"),
+        FullItem("full_speed", "车速", "%.2f m/s".format(uiState.telemetry.speedMetersPerSecond)),
+        FullItem("full_envtemp", "环境温度", "%.1f°C".format(uiState.telemetry.temperatureC)),
+        FullItem("full_mlxobj", "红外目标温度", "%.1f°C".format(uiState.telemetry.mlxObjectTemperatureC)),
+        FullItem("full_mlxamb", "红外环境温度", "%.1f°C".format(uiState.telemetry.mlxAmbientTemperatureC)),
+        FullItem("full_ahttemp", "AHT 温度", "%.1f°C".format(uiState.telemetry.ahtTemperatureC)),
+        FullItem("full_ahtrh", "AHT 湿度", "%.1f%%".format(uiState.telemetry.ahtHumidityPercent)),
+        FullItem("full_mq8", "MQ8 气体", "%.0f / %.0f%%".format(uiState.telemetry.mq8Raw, uiState.telemetry.gasPercent * 100f)),
+        FullItem("full_track", "巡迹状态", "${uiState.telemetry.trackBinary} (${uiState.telemetry.trackValue})"),
+        FullItem("full_dist", "避障测距", "${uiState.telemetry.obstacleDistanceCm} cm"),
+        FullItem("full_collision", "防撞状态", if (uiState.telemetry.obstacleDetected) "已触发" else "安全"),
+        FullItem("full_return", "返航原因", uiState.telemetry.returnReason.label),
+        FullItem("full_home", "归位状态", if (uiState.telemetry.homeDockReached) "已到位" else "未到位"),
+        FullItem("full_latency", "延迟", if (uiState.telemetry.latencyMs > 0) "${uiState.telemetry.latencyMs} ms" else "--"),
     )
 
-    Card {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1538,19 +1842,32 @@ private fun FullOverviewCard(uiState: MainUiState) {
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "包含车辆状态、传感器数据和 RFID 位置信息",
+                text = "长按各项可编辑或删除",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                data.chunked(2).forEach { row ->
+                items.filter { item ->
+                    val state = uiState.overviewItemStates[item.id]
+                    state == null || !state.deleted
+                }.chunked(2).forEach { row ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        row.forEach { (label, value) ->
+                        row.forEach { item ->
+                            val state = uiState.overviewItemStates[item.id]
                             Card(
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .combinedClickable(
+                                        onClick = { },
+                                        onLongClick = {
+                                            val title = state?.customTitle ?: item.label
+                                            val fieldPath = state?.customFieldPath ?: item.id
+                                            onItemClick(item.id, title, fieldPath)
+                                        },
+                                    ),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                             ) {
                                 Column(
@@ -1558,12 +1875,12 @@ private fun FullOverviewCard(uiState: MainUiState) {
                                     verticalArrangement = Arrangement.spacedBy(4.dp),
                                 ) {
                                     Text(
-                                        text = label,
+                                        text = item.label,
                                         style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                     Text(
-                                        text = value,
+                                        text = item.value,
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.SemiBold,
                                         maxLines = 2,
@@ -1586,7 +1903,7 @@ private fun MetricRow(
     value: String,
     supporting: String,
 ) {
-    Card {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1620,7 +1937,7 @@ private fun EditableMetricRow(
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
 ) {
-    Card {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1668,23 +1985,16 @@ private fun CommandChip(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
-    val containerColor = when (emphasis) {
-        CommandEmphasis.Primary -> MaterialTheme.colorScheme.primaryContainer
-        CommandEmphasis.Accent -> MaterialTheme.colorScheme.tertiaryContainer
-        CommandEmphasis.Danger -> MaterialTheme.colorScheme.primaryContainer
-        CommandEmphasis.Neutral -> MaterialTheme.colorScheme.surfaceVariant
-    }
-
     Box(
         modifier = Modifier
             .width(140.dp)
             .clip(RoundedCornerShape(18.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick,
             )
-            .background(containerColor)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -1692,7 +2002,8 @@ private fun CommandChip(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
         )
     }
 }
@@ -1704,7 +2015,7 @@ private fun SettingToggle(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
-    Card {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1756,7 +2067,7 @@ private fun GrayChartCard(
     onHide: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
-    Card {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1927,3 +2238,4 @@ private fun CarHostScaffoldPreview() {
         }
     }
 }
+

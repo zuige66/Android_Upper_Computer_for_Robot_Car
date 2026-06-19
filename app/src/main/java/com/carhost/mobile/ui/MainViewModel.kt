@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.json.JSONArray
 import org.json.JSONObject
 
 @HiltViewModel
@@ -182,17 +183,17 @@ class MainViewModel @Inject constructor(
             is MainIntent.DeleteCustomChart -> deleteCustomChart(intent.chartId)
             is MainIntent.UpdateCustomChart -> updateCustomChart(intent.chart)
             is MainIntent.SendRawCommand -> sendRawCommand(intent.raw)
-            is MainIntent.UpdateCustomCommand -> updateCustomCommand(intent.command)
-            is MainIntent.AddQuickButton -> addQuickButton(intent.button)
-            is MainIntent.DeleteQuickButton -> deleteQuickButton(intent.buttonId)
-            is MainIntent.UpdateQuickButton -> updateQuickButton(intent.button)
+            is MainIntent.UpdateCustomCommand -> updateCustomCommand(intent.command, intent.saveAsDefault)
+            is MainIntent.AddQuickButton -> addQuickButton(intent.button, intent.saveAsDefault)
+            is MainIntent.DeleteQuickButton -> deleteQuickButton(intent.buttonId, intent.saveAsDefault)
+            is MainIntent.UpdateQuickButton -> updateQuickButton(intent.button, intent.saveAsDefault)
             MainIntent.RestoreDefaultCommands -> restoreDefaultCommands()
             is MainIntent.ToggleBuiltInChartVisible -> toggleBuiltInChartVisible(intent.chartId)
-            is MainIntent.UpdateBuiltInChart -> updateBuiltInChart(intent.chartId, intent.name, intent.fieldPath)
-            is MainIntent.DeleteBuiltInChart -> deleteBuiltInChart(intent.chartId)
+            is MainIntent.UpdateBuiltInChart -> updateBuiltInChart(intent.chartId, intent.name, intent.fieldPath, intent.saveAsDefault)
+            is MainIntent.DeleteBuiltInChart -> deleteBuiltInChart(intent.chartId, intent.saveAsDefault)
             MainIntent.RestoreDefaultCharts -> restoreDefaultCharts()
-            is MainIntent.DeleteOverviewItem -> deleteOverviewItem(intent.itemId)
-            is MainIntent.EditOverviewItem -> editOverviewItem(intent.itemId, intent.newTitle, intent.fieldPath)
+            is MainIntent.DeleteOverviewItem -> deleteOverviewItem(intent.itemId, intent.saveAsDefault)
+            is MainIntent.EditOverviewItem -> editOverviewItem(intent.itemId, intent.newTitle, intent.fieldPath, intent.saveAsDefault)
             MainIntent.RestoreDefaultOverview -> restoreDefaultOverview()
             MainIntent.ResetOverviewData -> resetOverviewData()
         }
@@ -294,39 +295,115 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    private fun updateCustomCommand(command: CustomCommandDef) {
+    private fun updateCustomCommand(command: CustomCommandDef, saveAsDefault: Boolean = false) {
         viewModelScope.launch {
             val current = preferencesRepository.preferences.first().customCommands
             val updated = current.filter { it.commandId != command.commandId } + command
             preferencesRepository.saveCustomCommands(updated)
+            if (saveAsDefault) saveCustomizedCommandDefaults()
         }
     }
 
-    private fun addQuickButton(button: QuickButtonDef) {
+    private fun addQuickButton(button: QuickButtonDef, saveAsDefault: Boolean = false) {
         viewModelScope.launch {
             val current = preferencesRepository.preferences.first().quickButtons
             preferencesRepository.saveQuickButtons(current + button)
+            if (saveAsDefault) saveCustomizedCommandDefaults()
         }
     }
 
-    private fun deleteQuickButton(buttonId: String) {
+    private fun deleteQuickButton(buttonId: String, saveAsDefault: Boolean = false) {
         viewModelScope.launch {
             val current = preferencesRepository.preferences.first().quickButtons
             preferencesRepository.saveQuickButtons(current.filter { it.id != buttonId })
+            if (saveAsDefault) saveCustomizedCommandDefaults()
         }
     }
 
-    private fun updateQuickButton(button: QuickButtonDef) {
+    private fun updateQuickButton(button: QuickButtonDef, saveAsDefault: Boolean = false) {
         viewModelScope.launch {
             val current = preferencesRepository.preferences.first().quickButtons
             preferencesRepository.saveQuickButtons(current.map { if (it.id == button.id) button else it })
+            if (saveAsDefault) saveCustomizedCommandDefaults()
         }
     }
 
     private fun restoreDefaultCommands() {
         viewModelScope.launch {
-            preferencesRepository.saveCustomCommands(emptyList())
-            preferencesRepository.saveQuickButtons(emptyList())
+            val customizedJson = preferencesRepository.getCustomizedCommandDefaults()
+            if (customizedJson.isNotBlank()) {
+                // Load from customized defaults
+                val customized = parseCustomizedCommandDefaults(customizedJson)
+                preferencesRepository.saveCustomCommands(customized.customCommands)
+                preferencesRepository.saveQuickButtons(customized.quickButtons)
+            } else {
+                // No customized defaults, clear to original
+                preferencesRepository.saveCustomCommands(emptyList())
+                preferencesRepository.saveQuickButtons(emptyList())
+            }
+        }
+    }
+
+    private fun saveCustomizedCommandDefaults() {
+        viewModelScope.launch {
+            val preferences = preferencesRepository.preferences.first()
+            val json = JSONObject().apply {
+                put("customCommands", JSONArray().apply {
+                    preferences.customCommands.forEach { cmd ->
+                        put(JSONObject().apply {
+                            put("commandId", cmd.commandId)
+                            put("customLabel", cmd.customLabel)
+                            put("customWireValue", cmd.customWireValue)
+                        })
+                    }
+                })
+                put("quickButtons", JSONArray().apply {
+                    preferences.quickButtons.forEach { btn ->
+                        put(JSONObject().apply {
+                            put("id", btn.id)
+                            put("label", btn.label)
+                            put("wireValue", btn.wireValue)
+                        })
+                    }
+                })
+            }
+            preferencesRepository.saveCustomizedCommandDefaults(json.toString())
+        }
+    }
+
+    private data class CustomizedCommandDefaults(
+        val customCommands: List<CustomCommandDef>,
+        val quickButtons: List<QuickButtonDef>,
+    )
+
+    private fun parseCustomizedCommandDefaults(json: String): CustomizedCommandDefaults {
+        return try {
+            val obj = JSONObject(json)
+            val customCommandsArray = obj.optJSONArray("customCommands")
+            val customCommands = if (customCommandsArray != null) {
+                (0 until customCommandsArray.length()).mapNotNull { i ->
+                    val cmd = customCommandsArray.optJSONObject(i) ?: return@mapNotNull null
+                    CustomCommandDef(
+                        commandId = cmd.optString("commandId", ""),
+                        customLabel = cmd.optString("customLabel", ""),
+                        customWireValue = cmd.optString("customWireValue", ""),
+                    )
+                }
+            } else emptyList()
+            val quickButtonsArray = obj.optJSONArray("quickButtons")
+            val quickButtons = if (quickButtonsArray != null) {
+                (0 until quickButtonsArray.length()).mapNotNull { i ->
+                    val btn = quickButtonsArray.optJSONObject(i) ?: return@mapNotNull null
+                    QuickButtonDef(
+                        id = btn.optString("id", ""),
+                        label = btn.optString("label", ""),
+                        wireValue = btn.optString("wireValue", ""),
+                    )
+                }
+            } else emptyList()
+            CustomizedCommandDefaults(customCommands, quickButtons)
+        } catch (_: Exception) {
+            CustomizedCommandDefaults(emptyList(), emptyList())
         }
     }
 
@@ -337,40 +414,143 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    private fun updateBuiltInChart(chartId: String, name: String, fieldPath: String) {
+    private fun updateBuiltInChart(chartId: String, name: String, fieldPath: String, saveAsDefault: Boolean = false) {
         builtInChartStates.update { current ->
             val state = current[chartId] ?: BuiltInChartState()
             current + (chartId to state.copy(customName = name.ifBlank { null }, customFieldPath = fieldPath.ifBlank { null }))
         }
+        if (saveAsDefault) saveCustomizedChartDefaults()
     }
 
-    private fun deleteBuiltInChart(chartId: String) {
+    private fun deleteBuiltInChart(chartId: String, saveAsDefault: Boolean = false) {
         builtInChartStates.update { current ->
             current + (chartId to (current[chartId] ?: BuiltInChartState()).copy(deleted = true, visible = false))
         }
+        if (saveAsDefault) saveCustomizedChartDefaults()
     }
 
     private fun restoreDefaultCharts() {
-        builtInChartStates.value = emptyMap()
-    }
-
-    private fun deleteOverviewItem(itemId: String) {
-        overviewItemStates.update { current ->
-            current + (itemId to (current[itemId] ?: OverviewItemState(itemId)).copy(deleted = true))
+        viewModelScope.launch {
+            val customizedJson = preferencesRepository.getCustomizedChartDefaults()
+            if (customizedJson.isNotBlank()) {
+                // Load from customized defaults
+                val customized = parseCustomizedChartDefaults(customizedJson)
+                builtInChartStates.value = customized
+            } else {
+                // No customized defaults, clear to original
+                builtInChartStates.value = emptyMap()
+            }
         }
     }
 
-    private fun editOverviewItem(itemId: String, newTitle: String, fieldPath: String) {
+    private fun saveCustomizedChartDefaults() {
+        viewModelScope.launch {
+            val json = JSONObject().apply {
+                put("chartStates", JSONObject().apply {
+                    builtInChartStates.value.forEach { (id, state) ->
+                        put(id, JSONObject().apply {
+                            put("customName", state.customName ?: "")
+                            put("customFieldPath", state.customFieldPath ?: "")
+                            put("visible", state.visible)
+                            put("deleted", state.deleted)
+                        })
+                    }
+                })
+            }
+            preferencesRepository.saveCustomizedChartDefaults(json.toString())
+        }
+    }
+
+    private fun parseCustomizedChartDefaults(json: String): Map<String, BuiltInChartState> {
+        return try {
+            val obj = JSONObject(json)
+            val chartStates = obj.optJSONObject("chartStates") ?: return emptyMap()
+            val result = mutableMapOf<String, BuiltInChartState>()
+            val keys = chartStates.keys()
+            while (keys.hasNext()) {
+                val id = keys.next()
+                val stateObj = chartStates.optJSONObject(id) ?: continue
+                result[id] = BuiltInChartState(
+                    customName = stateObj.optString("customName", "").ifBlank { null },
+                    customFieldPath = stateObj.optString("customFieldPath", "").ifBlank { null },
+                    visible = stateObj.optBoolean("visible", true),
+                    deleted = stateObj.optBoolean("deleted", false),
+                )
+            }
+            result
+        } catch (_: Exception) {
+            emptyMap()
+        }
+    }
+
+    private fun deleteOverviewItem(itemId: String, saveAsDefault: Boolean = false) {
+        overviewItemStates.update { current ->
+            current + (itemId to (current[itemId] ?: OverviewItemState(itemId)).copy(deleted = true))
+        }
+        if (saveAsDefault) saveCustomizedOverviewDefaults()
+    }
+
+    private fun editOverviewItem(itemId: String, newTitle: String, fieldPath: String, saveAsDefault: Boolean = false) {
         overviewItemStates.update { current ->
             current + (itemId to (current[itemId] ?: OverviewItemState(itemId)).copy(
                 customTitle = newTitle.ifBlank { null },
                 customFieldPath = fieldPath.ifBlank { null },
             ))
         }
+        if (saveAsDefault) saveCustomizedOverviewDefaults()
     }
 
     private fun restoreDefaultOverview() {
-        overviewItemStates.value = emptyMap()
+        viewModelScope.launch {
+            val customizedJson = preferencesRepository.getCustomizedOverviewDefaults()
+            if (customizedJson.isNotBlank()) {
+                // Load from customized defaults
+                val customized = parseCustomizedOverviewDefaults(customizedJson)
+                overviewItemStates.value = customized
+            } else {
+                // No customized defaults, clear to original
+                overviewItemStates.value = emptyMap()
+            }
+        }
+    }
+
+    private fun saveCustomizedOverviewDefaults() {
+        viewModelScope.launch {
+            val json = JSONObject().apply {
+                put("itemStates", JSONObject().apply {
+                    overviewItemStates.value.forEach { (id, state) ->
+                        put(id, JSONObject().apply {
+                            put("customTitle", state.customTitle ?: "")
+                            put("customFieldPath", state.customFieldPath ?: "")
+                            put("deleted", state.deleted)
+                        })
+                    }
+                })
+            }
+            preferencesRepository.saveCustomizedOverviewDefaults(json.toString())
+        }
+    }
+
+    private fun parseCustomizedOverviewDefaults(json: String): Map<String, OverviewItemState> {
+        return try {
+            val obj = JSONObject(json)
+            val itemStates = obj.optJSONObject("itemStates") ?: return emptyMap()
+            val result = mutableMapOf<String, OverviewItemState>()
+            val keys = itemStates.keys()
+            while (keys.hasNext()) {
+                val id = keys.next()
+                val stateObj = itemStates.optJSONObject(id) ?: continue
+                result[id] = OverviewItemState(
+                    id = id,
+                    customTitle = stateObj.optString("customTitle", "").ifBlank { null },
+                    customFieldPath = stateObj.optString("customFieldPath", "").ifBlank { null },
+                    deleted = stateObj.optBoolean("deleted", false),
+                )
+            }
+            result
+        } catch (_: Exception) {
+            emptyMap()
+        }
     }
 
     private fun resetOverviewData() {
